@@ -5,6 +5,7 @@ import "./index.css";
 import App from "./App.jsx";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
+import { LocationProvider } from "@/context/LocationContext";
 import AppErrorBoundary from "@/components/shared/AppErrorBoundary";
 
 const queryClient = new QueryClient({
@@ -21,11 +22,13 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AppErrorBoundary>
-          <TooltipProvider delayDuration={200}>
-            <App />
-          </TooltipProvider>
-        </AppErrorBoundary>
+        <LocationProvider>
+          <AppErrorBoundary>
+            <TooltipProvider delayDuration={200}>
+              <App />
+            </TooltipProvider>
+          </AppErrorBoundary>
+        </LocationProvider>
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>

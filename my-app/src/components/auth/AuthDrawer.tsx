@@ -3,12 +3,12 @@ import { X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 
-import { ROLE_HOME_ROUTE } from "@/context/AuthContext";
+import { getPostAuthRoute, KYC_ROUTE, ROLE_HOME_ROUTE } from "@/context/AuthContext";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import type { User } from "@/types/user";
 import { useAuthDrawer } from "@/context/AuthDrawerContext";
 import { TownExchangeLogo, APP_NAME } from "@/components/brand/TownExchangeLogo";
-import { LoginForm } from "@/components/auth/LoginForm";
-import { SignupForm } from "@/components/auth/SignupForm";
+import { OtpAuthForm } from "@/components/auth/OtpAuthForm";
 
 const sidePanelVariants = {
   hidden: { x: "100%" },
@@ -61,11 +61,24 @@ export function AuthDrawer() {
   const handleAuthSuccess = useCallback(
     (user: User) => {
       closeAuthDrawer();
-      const redirectTo = options.from ?? ROLE_HOME_ROUTE[user.role];
-      navigate(redirectTo, { replace: true, state: options.feedState });
+      const intended = options.from ?? ROLE_HOME_ROUTE[user.role];
+      const redirectTo = getPostAuthRoute(user, intended);
+      navigate(redirectTo, {
+        replace: true,
+        state:
+          redirectTo === KYC_ROUTE
+            ? { from: intended, feedState: options.feedState }
+            : { feedState: options.feedState },
+      });
     },
     [closeAuthDrawer, navigate, options.feedState, options.from]
   );
+
+  const handleEscape = useCallback(() => {
+    closeAuthDrawer();
+  }, [closeAuthDrawer]);
+
+  const panelRef = useFocusTrap(isOpen, handleEscape, "#drawer-phone");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -75,15 +88,6 @@ export function AuthDrawer() {
       document.body.style.overflow = prev;
     };
   }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeAuthDrawer();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, closeAuthDrawer]);
 
   const instant = reduceMotion;
   const panelVariants = isMobile ? bottomPanelVariants : sidePanelVariants;
@@ -108,6 +112,7 @@ export function AuthDrawer() {
           />
 
           <motion.aside
+            ref={panelRef}
             className={`relative flex flex-col border-border bg-card shadow-2xl ${
               isMobile
                 ? "h-[min(92dvh,100%)] w-full max-h-[92dvh] rounded-t-2xl border-t"
@@ -123,8 +128,7 @@ export function AuthDrawer() {
             )}
             <div className="flex items-center justify-between border-b border-border px-4 sm:px-5 py-3 sm:py-4">
               <div className="flex min-w-0 items-center gap-2.5">
-                <TownExchangeLogo size={32} />
-                <span className="font-display truncate text-base font-semibold text-foreground">{APP_NAME}</span>
+                <TownExchangeLogo size={36} variant="full" />
               </div>
               <motion.button
                 type="button"
@@ -152,23 +156,19 @@ export function AuthDrawer() {
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {mode === "login"
-                      ? "Log in to browse listings, save favourites, and more."
-                      : "Join Town Exchange — browse, list, or manage properties."}
+                      ? "Enter your mobile number and OTP to continue."
+                      : `Join ${APP_NAME} with your mobile number, then verify your identity.`}
                   </p>
 
                   <div className="mt-6">
-                    {mode === "login" ? (
-                      <LoginForm
-                        onSuccess={handleAuthSuccess}
-                        onSwitchToSignup={() => setMode("signup")}
-                      />
-                    ) : (
-                      <SignupForm
-                        defaultRole={options.defaultRole ?? "buyer"}
-                        onSuccess={handleAuthSuccess}
-                        onSwitchToLogin={() => setMode("login")}
-                      />
-                    )}
+                    <OtpAuthForm
+                      key={mode}
+                      mode={mode}
+                      open={isOpen}
+                      defaultRole={options.defaultRole ?? "buyer"}
+                      onSuccess={handleAuthSuccess}
+                      onSwitchMode={() => setMode(mode === "login" ? "signup" : "login")}
+                    />
                   </div>
                 </motion.div>
               </AnimatePresence>

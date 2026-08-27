@@ -1,16 +1,16 @@
 import { LegalPageLayout } from "@/components/legal/LegalPageLayout";
 import { LegalList, LegalNote, LegalSection } from "@/components/legal/LegalProse";
-import { APP_NAME } from "@/components/brand/TownExchangeLogo";
+import { APP_NAME, APP_LOCATION } from "@/components/brand/TownExchangeLogo";
 
 export default function AboutUsPage() {
   return (
     <LegalPageLayout
       title="About Us"
-      subtitle={`${APP_NAME} is Chennai's no-brokerage property marketplace — built to connect renters, buyers, and owners directly.`}
+      subtitle={`${APP_NAME} is ${APP_LOCATION}'s no-brokerage property marketplace — built to connect renters, buyers, and owners directly.`}
     >
       <LegalSection title="Our mission">
         <p>
-          We believe finding a home in Chennai should be transparent, affordable, and free from
+          We believe finding a home in {APP_LOCATION} should be transparent, affordable, and free from
           unnecessary middlemen. {APP_NAME} helps people discover verified listings, compare
           options, save favourites, and reach owners without paying brokerage fees.
         </p>
@@ -33,9 +33,9 @@ export default function AboutUsPage() {
         />
       </LegalSection>
 
-      <LegalSection title="Built for Chennai">
+      <LegalSection title={`Built for ${APP_LOCATION}`}>
         <p>
-          {APP_NAME} is focused on Chennai and its neighbourhoods — from Anna Nagar and
+          {APP_NAME} is focused on {APP_LOCATION} and its neighbourhoods — from Anna Nagar and
           T. Nagar to Porur, Tambaram, and beyond. Listings, search filters, and local context
           are tailored to how people actually search for homes in this city.
         </p>
@@ -76,7 +76,7 @@ export default function AboutUsPage() {
           items={[
             "Email: hello@townexchange.in",
             "Support: support@townexchange.in",
-            "Location: Chennai, Tamil Nadu, India",
+            `Location: ${APP_LOCATION}, Tamil Nadu, India`,
           ]}
         />
       </LegalSection>

@@ -1,28 +1,44 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Heart, Phone, Mail, MapPin, Home,
   Bed, Bath, Square, Car, Calendar, Building2, CheckCircle2,
-  ChevronLeft, ChevronRight, User, Shield, Clock, IndianRupee, X
+  ChevronLeft, ChevronRight, User, Shield, Clock, IndianRupee, X, Flag
 } from 'lucide-react';
-import { propertyAPI } from '../services/api';
+import { propertyAPI, enquiryAPI, reportAPI } from '../services/api';
+import { useAuth } from '@/context/AuthContext';
 import TownLoader from "@/components/shared/TownLoader";
+import PropertyDetailsSkeleton from "@/components/shared/PropertyDetailsSkeleton";
+import { recordRecentlyViewed } from "@/lib/recentlyViewed";
+import { formatRelativeTime } from "@/lib/formatRelativeTime";
+import { statusBadgeClass } from "@/lib/statusStyles";
 import { EMICalculator } from './EMICalculator';
 import { getApiErrorMessage } from '@/lib/apiErrors';
 import LoadErrorState from "@/components/shared/LoadErrorState";
-
-import { TownExchangeBrand } from './brand/TownExchangeLogo';
+import AppNavbar from "@/components/shared/AppNavbar";
 
 export default function PropertyDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const backTo = location.state?.from || '/home';
+  const { user } = useAuth();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [errorCause, setErrorCause] = useState(null);
-  const [showComingSoon, setShowComingSoon] = useState(false);
+  const [enquiryMessage, setEnquiryMessage] = useState('');
+  const [enquirySubmitting, setEnquirySubmitting] = useState(false);
+  const [enquiryError, setEnquiryError] = useState(null);
+  const [enquirySuccess, setEnquirySuccess] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('Misleading listing');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportError, setReportError] = useState(null);
+  const [reportSuccess, setReportSuccess] = useState(false);
 
   useEffect(() => {
     fetchPropertyDetails();
@@ -35,6 +51,7 @@ export default function PropertyDetails() {
     try {
       const data = await propertyAPI.getPropertyById(id);
       setProperty(data);
+      recordRecentlyViewed(Number(id));
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not load this property. Please try again.'));
       setErrorCause(err);
@@ -69,9 +86,54 @@ export default function PropertyDetails() {
     }
   };
 
-  const handleCallClick = () => {
-    setShowComingSoon(true);
-    setTimeout(() => setShowComingSoon(false), 2000);
+  const canEnquire = user?.kyc_status === 'verified' && property?.status === 'PUBLISHED';
+
+  const handleSubmitEnquiry = async () => {
+    if (!canEnquire) {
+      navigate('/login', { state: { from: `/property/${id}` } });
+      return;
+    }
+    if (enquiryMessage.trim().length < 5) {
+      setEnquiryError('Please enter a message of at least 5 characters.');
+      return;
+    }
+    setEnquirySubmitting(true);
+    setEnquiryError(null);
+    try {
+      await enquiryAPI.create({
+        property_id: Number(id),
+        message: enquiryMessage.trim(),
+        contact_method: 'phone',
+      });
+      setEnquirySuccess(true);
+      setEnquiryMessage('');
+    } catch (err) {
+      setEnquiryError(getApiErrorMessage(err, 'Could not send enquiry. Please try again.'));
+    } finally {
+      setEnquirySubmitting(false);
+    }
+  };
+
+  const handleSubmitReport = async () => {
+    if (user?.kyc_status !== 'verified') {
+      navigate('/login', { state: { from: `/property/${id}` } });
+      return;
+    }
+    setReportSubmitting(true);
+    setReportError(null);
+    try {
+      await reportAPI.reportProperty({
+        property_id: Number(id),
+        reason: reportReason,
+        description: reportDetails.trim() || undefined,
+      });
+      setReportSuccess(true);
+      setShowReportModal(false);
+    } catch (err) {
+      setReportError(getApiErrorMessage(err, 'Could not submit report.'));
+    } finally {
+      setReportSubmitting(false);
+    }
   };
 
   const formatPrice = (price) => {
@@ -100,71 +162,65 @@ export default function PropertyDetails() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 overflow-x-hidden">
-        <TownLoader size="lg" label="Loading property" minHeight="100vh" />
+        <AppNavbar variant="inner" backTo={backTo} maxWidth="7xl" logoTagline="Property Details" />
+        <PropertyDetailsSkeleton />
       </div>
     );
   }
 
   if (error || !property) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        {error ? (
-          <LoadErrorState
-            title="Couldn't load property"
-            message={error}
-            error={errorCause}
-            onRetry={fetchPropertyDetails}
-          />
-        ) : (
-          <div className="text-center">
-            <p className="text-gray-700 text-base font-medium mb-3">Property not found</p>
-            <button
-              onClick={() => navigate(-1)}
-              className="px-6 py-2.5 bg-brand-500 text-white rounded-control hover:bg-brand-700 font-medium text-sm transition-colors"
-            >
-              Go Back
-            </button>
-          </div>
-        )}
+      <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+        <AppNavbar variant="inner" backTo={backTo} maxWidth="7xl" logoTagline="Property Details" />
+        <div className="flex items-center justify-center p-4 min-h-[60vh]">
+          {error ? (
+            <LoadErrorState
+              title="Couldn't load property"
+              message={error}
+              error={errorCause}
+              onRetry={fetchPropertyDetails}
+            />
+          ) : (
+            <div className="text-center">
+              <p className="text-gray-700 text-base font-medium mb-3">Property not found</p>
+              <button
+                onClick={() => navigate(backTo)}
+                className="px-6 py-2.5 bg-brand-500 text-white rounded-control hover:bg-brand-700 font-medium text-sm transition-colors"
+              >
+                Go Back
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
+  const imageAlt = `${property.bhk_type} ${property.apartment_type} in ${property.locality}, ${property.city}`;
+
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
-      {/* Professional Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-soft-sm safe-top">
-        <div className="px-4 py-3 max-w-7xl mx-auto">
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-              <button
-                onClick={() => navigate(-1)}
-                className="md:hidden p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronLeft size={24} className="text-gray-700" />
-              </button>
-
-              <TownExchangeBrand
-                asButton
-                logoSize={36}
-                showTagline
-                tagline="Property Details"
-                onClick={() => navigate('/')}
-              />
-            </div>
-
+      <AppNavbar
+        variant="inner"
+        backTo={backTo}
+        maxWidth="7xl"
+        logoTagline="Property Details"
+        extraActions={
+          property ? (
             <button
+              type="button"
               onClick={handleToggleFavourite}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="inline-flex shrink-0 items-center justify-center p-1.5 sm:p-2 hover:bg-gray-100 rounded-control transition-colors"
+              aria-label={property.is_favourite ? "Remove from favourites" : "Add to favourites"}
             >
               <Heart
-                size={22}
+                size={20}
                 className={property.is_favourite ? 'fill-red-500 text-red-500' : 'text-gray-700'}
               />
             </button>
-          </div>
-        </div>
-      </header>
+          ) : null
+        }
+      />
 
       {/* Breadcrumbs - Desktop Only */}
       <div className="hidden md:block bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
@@ -201,7 +257,7 @@ export default function PropertyDetails() {
               src={property.images && property.images.length > 0 && property.images[currentImageIndex]?.url
                 ? property.images[currentImageIndex].url
                 : 'https://via.placeholder.com/800x600?text=No+Image'}
-              alt={property.apartment_name || 'Property'}
+              alt={imageAlt}
               className="w-full h-full object-cover cursor-pointer"
               onClick={() => setShowImageModal(true)}
               onError={(e) => {
@@ -213,13 +269,17 @@ export default function PropertyDetails() {
             {property.images && property.images.length > 1 && (
               <>
                 <button
+                  type="button"
                   onClick={handlePrevImage}
+                  aria-label="Previous image"
                   className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2.5 md:p-3 rounded-full hover:bg-black/80 transition-colors shadow-soft-md"
                 >
                   <ChevronLeft size={24} />
                 </button>
                 <button
+                  type="button"
                   onClick={handleNextImage}
+                  aria-label="Next image"
                   className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2.5 md:p-3 rounded-full hover:bg-black/80 transition-colors shadow-soft-md"
                 >
                   <ChevronRight size={24} />
@@ -239,13 +299,16 @@ export default function PropertyDetails() {
             <div className="flex gap-2 md:gap-3 p-3 md:p-4 overflow-x-auto scrollbar-hide bg-gray-900">
               {property.images.map((img, index) => (
                 <button
+                  type="button"
                   key={index}
                   onClick={() => setCurrentImageIndex(index)}
+                  aria-label={`View image ${index + 1} of ${property.images.length}`}
+                  aria-current={currentImageIndex === index ? "true" : undefined}
                   className={`flex-shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-control overflow-hidden border-2 transition-all ${
                     currentImageIndex === index ? 'border-brand-500 scale-105 shadow-soft-md' : 'border-transparent opacity-60 hover:opacity-80'
                   }`}
                 >
-                  <img src={img.url} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-cover" />
+                  <img src={img.url} alt={`${imageAlt} — photo ${index + 1}`} className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
@@ -265,7 +328,20 @@ export default function PropertyDetails() {
                   {property.bhk_type || 'Property'} {property.apartment_type || ''}
                   {property.apartment_name && ` in ${property.apartment_name}`}
                 </h2>
-                <div className="flex items-center gap-2 text-sm md:text-base text-gray-600">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mt-2">
+                  {property.created_at ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Clock size={14} />
+                      {formatRelativeTime(property.created_at)}
+                    </span>
+                  ) : null}
+                  {property.user_type === "Owner" ? (
+                    <span className={statusBadgeClass("success")}>
+                      <Shield size={12} /> Direct owner listing
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-2 text-sm md:text-base text-gray-600 mt-2">
                   <MapPin size={18} className="flex-shrink-0 text-brand-600" />
                   <span>{property.locality || 'Location'}, {property.city || 'City'}</span>
                 </div>
@@ -534,23 +610,43 @@ export default function PropertyDetails() {
 
               <div className="space-y-3">
                 <div className="bg-brand-50 p-4 rounded-control border border-brand-200">
-                  <p className="text-xs text-brand-800 mb-1 font-medium">Contact Information</p>
-                  <p className="text-sm text-brand-700">Click below to view phone & email</p>
+                  <p className="text-xs text-brand-800 mb-1 font-medium">Send an enquiry</p>
+                  <p className="text-sm text-brand-700">
+                    {canEnquire
+                      ? 'The owner will be notified of your interest.'
+                      : user
+                        ? 'Complete KYC verification to contact owners.'
+                        : 'Sign in and verify your account to send an enquiry.'}
+                  </p>
                 </div>
 
+                <textarea
+                  value={enquiryMessage}
+                  onChange={(e) => setEnquiryMessage(e.target.value)}
+                  rows={3}
+                  placeholder="Hi, I'm interested in this property. Please share more details..."
+                  disabled={!canEnquire || enquirySubmitting}
+                  className="w-full rounded-control border border-gray-200 px-3 py-2 text-sm outline-none focus:border-brand-500 disabled:bg-gray-50"
+                />
+                {enquiryError ? <p className="text-xs text-red-600">{enquiryError}</p> : null}
+                {enquirySuccess ? (
+                  <p className="text-xs text-emerald-700">Enquiry sent! The owner has been notified.</p>
+                ) : null}
                 <button
-                  onClick={handleCallClick}
-                  className="w-full py-3 px-4 rounded-control bg-white border-2 border-brand-500 text-brand-600 font-semibold text-sm transition-all hover:bg-brand-50 hover:scale-[1.02] flex items-center justify-center gap-2 shadow-soft-sm"
-                >
-                  <Phone size={18} />
-                  Call Owner
-                </button>
-                <button
-                  onClick={handleCallClick}
-                  className="w-full py-3 px-4 rounded-control text-white font-semibold text-sm transition-all hover:scale-[1.02] flex items-center justify-center gap-2 shadow-soft-md hover:shadow-brand-glow bg-brand-500 hover:bg-brand-700"
+                  onClick={handleSubmitEnquiry}
+                  disabled={!canEnquire || enquirySubmitting}
+                  className="w-full py-3 px-4 rounded-control text-white font-semibold text-sm transition-all hover:scale-[1.02] flex items-center justify-center gap-2 shadow-soft-md hover:shadow-brand-glow bg-brand-500 hover:bg-brand-700 disabled:opacity-60 disabled:hover:scale-100"
                 >
                   <Mail size={18} />
-                  Send Message
+                  {enquirySubmitting ? 'Sending...' : 'Send enquiry'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(true)}
+                  className="w-full py-2 px-4 rounded-control border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
+                >
+                  <Flag size={16} />
+                  Report listing
                 </button>
               </div>
 
@@ -564,31 +660,55 @@ export default function PropertyDetails() {
         </div>
       </div>
 
-      {/* Bottom Action Bar - Mobile Only */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 shadow-soft-lg z-30 safe-bottom">
-        <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
-          <button
-            onClick={handleCallClick}
-            className="py-3 px-4 rounded-control bg-white border-2 border-brand-500 text-brand-600 font-semibold text-sm transition-all hover:bg-brand-50 flex items-center justify-center gap-2"
-          >
-            <Phone size={18} />
-            <span>Call</span>
-          </button>
-          <button
-            onClick={handleCallClick}
-            className="py-3 px-4 rounded-control text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-700"
-          >
-            <Mail size={18} />
-            <span>Message</span>
-          </button>
-        </div>
+        <button
+          onClick={handleSubmitEnquiry}
+          disabled={!canEnquire || enquirySubmitting}
+          className="w-full py-3 px-4 rounded-control text-white font-semibold text-sm flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-700 disabled:opacity-60"
+        >
+          <Mail size={18} />
+          {enquirySubmitting ? 'Sending...' : 'Send enquiry'}
+        </button>
       </div>
 
-      {/* Coming Soon Toast */}
-      {showComingSoon && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[9999]">
-          <div className="bg-gray-900 text-white px-6 py-3 rounded-lg shadow-xl">
-            <p className="text-sm font-medium">📞 Feature coming soon!</p>
+      {showReportModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">Report this listing</h3>
+            <p className="mt-1 text-sm text-gray-600">Help us keep the marketplace trustworthy.</p>
+            <select
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              className="mt-4 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            >
+              <option>Misleading listing</option>
+              <option>Duplicate listing</option>
+              <option>Wrong location or price</option>
+              <option>Suspected fraud</option>
+              <option>Other</option>
+            </select>
+            <textarea
+              value={reportDetails}
+              onChange={(e) => setReportDetails(e.target.value)}
+              rows={3}
+              placeholder="Additional details (optional)"
+              className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            />
+            {reportError ? <p className="mt-2 text-xs text-red-600">{reportError}</p> : null}
+            {reportSuccess ? <p className="mt-2 text-xs text-emerald-700">Report submitted. Thank you.</p> : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setShowReportModal(false)} className="rounded-lg px-4 py-2 text-sm">
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={reportSubmitting}
+                onClick={handleSubmitReport}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              >
+                Submit report
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -606,7 +726,7 @@ export default function PropertyDetails() {
           <div className="relative w-full h-full flex items-center justify-center p-4">
             <img
               src={property.images[currentImageIndex]?.url}
-              alt={property.apartment_name || 'Property'}
+              alt={imageAlt}
               className="max-w-full max-h-full object-contain"
             />
 

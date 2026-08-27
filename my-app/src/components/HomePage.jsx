@@ -4,42 +4,48 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Search,
   X,
-  MapPin,
   Plus,
   Home,
   AlertCircle,
   Heart,
   Camera,
   Building2,
-  LogOut,
+  Megaphone,
   Users2,
 } from "lucide-react";
 import axios from "axios";
-import { propertyAPI } from "../services/api";
+import { propertyAPI, activityAPI, recommendationsAPI } from "../services/api";
 import { configAPI } from "../services/configAPI";
 import { DynamicIcon } from "./DynamicIcon";
 import StoryUploadModal from "./StoryUploadModal";
 import CreatePostModal from "./CreatePostModal";
 import { useAuth, ROLE_HOME_ROUTE } from "../context/AuthContext";
-import { useLogout } from "@/context/AuthDrawerContext";
+import { useLocationContext } from "../context/LocationContext";
+import { buildPropertySearchQuery } from "@/lib/buildPropertySearchQuery";
+import { getLocationCityFilter } from "@/lib/locationUtils";
+import { criteriaFromFeedSearch, syncSearchAlert } from "@/lib/searchAlerts";
+import { AdvertisementSlider } from "@/components/advertisements/AdvertisementSlider";
 import { FooterLinks } from "@/components/legal/FooterLinks";
 import { TownExchangeLogo, APP_NAME } from "@/components/brand/TownExchangeLogo";
 import TownLoader from "@/components/shared/TownLoader";
+import AppNavbar from "@/components/shared/AppNavbar";
+import { PropertyCard } from "@/components/PropertyCard";
+import { getRecentSearches, addRecentSearch } from "@/lib/recentSearches";
+import { getRecentlyViewedIds } from "@/lib/recentlyViewed";
+import { activeTabClass, inactiveTabClass } from "@/lib/tabStyles";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:8005";
-
-const APP_LOCATION = "Chennai, India";
+  import.meta.env.VITE_API_URL || "http://localhost:8024";
 
 const colorClasses = {
   purple: { bg: "bg-brand-50", text: "text-brand-700", hover: "hover:bg-brand-100" },
-  blue: { bg: "bg-blue-50", text: "text-blue-700", hover: "hover:bg-blue-100" },
-  orange: { bg: "bg-orange-50", text: "text-orange-700", hover: "hover:bg-orange-100" },
-  green: { bg: "bg-emerald-50", text: "text-emerald-700", hover: "hover:bg-emerald-100" },
+  blue: { bg: "bg-brand-50", text: "text-brand-700", hover: "hover:bg-brand-100" },
+  orange: { bg: "bg-secondary-50", text: "text-secondary-700", hover: "hover:bg-secondary-100" },
+  green: { bg: "bg-accent-yellow-50", text: "text-accent-yellow-700", hover: "hover:bg-accent-yellow-100" },
   red: { bg: "bg-rose-50", text: "text-rose-700", hover: "hover:bg-rose-100" },
 };
 
@@ -52,8 +58,8 @@ const SEARCH_TABS = [
 const QUICK_ACTIONS = [
   { icon: Building2, label: "Browse", action: "feed" },
   { icon: Heart, label: "Favourites", action: "favourites" },
+  { icon: Megaphone, label: "Advertise", action: "advertise" },
   { icon: Camera, label: "Stories", action: "stories" },
-  { icon: Plus, label: "Post", action: "post" },
 ];
 
 const useDebounce = (value, delay) => {
@@ -67,8 +73,9 @@ const useDebounce = (value, delay) => {
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
-  const logoutToHome = useLogout();
+  const { selectedLocation, locationLabel } = useLocationContext();
 
   const [config, setConfig] = useState(null);
   const [configLoading, setConfigLoading] = useState(true);
@@ -86,6 +93,10 @@ export default function HomePage() {
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
   const [stories, setStories] = useState([]);
   const [storiesLoading, setStoriesLoading] = useState(false);
+  const [recentViewed, setRecentViewed] = useState([]);
+  const [recommendationSections, setRecommendationSections] = useState([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -134,20 +145,24 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
     const searchProperties = async () => {
       if (debouncedSearchQuery.trim().length >= 2) {
         setSearching(true);
         try {
           const results = await propertyAPI.searchProperties(
-            debouncedSearchQuery.trim()
+            buildPropertySearchQuery(selectedLocation, debouncedSearchQuery.trim()),
+            20,
+            controller.signal
           );
           setSearchResults(results);
           setShowDropdown(true);
         } catch (error) {
+          if (error?.name === "CanceledError" || error?.code === "ERR_CANCELED") return;
           console.error("Search error:", error);
           setSearchResults([]);
         } finally {
-          setSearching(false);
+          if (!controller.signal.aborted) setSearching(false);
         }
       } else {
         setSearchResults([]);
@@ -155,17 +170,58 @@ export default function HomePage() {
       }
     };
     searchProperties();
-  }, [debouncedSearchQuery]);
+    return () => controller.abort();
+  }, [debouncedSearchQuery, selectedLocation?.id]);
+
+  useEffect(() => {
+    const ids = getRecentlyViewedIds();
+    if (!ids.length) return;
+    Promise.all(
+      ids.slice(0, 6).map((id) =>
+        propertyAPI.getPropertyById(id).catch(() => null)
+      )
+    ).then((results) => setRecentViewed(results.filter(Boolean)));
+  }, []);
+
+  useEffect(() => {
+    if (user?.kyc_status !== "verified") {
+      setRecommendationSections([]);
+      return undefined;
+    }
+    let cancelled = false;
+    setRecommendationsLoading(true);
+    recommendationsAPI
+      .getHome()
+      .then((data) => {
+        if (!cancelled) setRecommendationSections(data.sections || []);
+      })
+      .catch(() => {
+        if (!cancelled) setRecommendationSections([]);
+      })
+      .finally(() => {
+        if (!cancelled) setRecommendationsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.kyc_status]);
 
   const handleCreatePost = useCallback(() => {
     setShowCreatePostModal(true);
   }, []);
 
+  useEffect(() => {
+    if (location.state?.openPost) {
+      setShowCreatePostModal(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.pathname, location.state, navigate]);
+
   const handleCreatePostSuccess = useCallback(
     (propertyId) => {
       setShowCreatePostModal(false);
       if (propertyId) {
-        navigate(`/property/${propertyId}`);
+      navigate(`/property/${propertyId}`, { state: { from: '/home' } });
       }
     },
     [navigate]
@@ -188,17 +244,60 @@ export default function HomePage() {
     const trimmed = searchQuery.trim();
     const tab = SEARCH_TABS.find((t) => t.key === activeSearchTab);
     if (trimmed.length >= 2) {
-      navigate("/property-feed", { state: { query: trimmed } });
+      addRecentSearch("home", trimmed);
+      if (user?.kyc_status === "verified") {
+        activityAPI
+          .trackSearch({
+            search_query: trimmed,
+            location_text: selectedLocation?.name || undefined,
+            property_type: tab?.propertyType,
+            transaction_type: tab?.propertyFor,
+          })
+          .catch(() => {});
+        syncSearchAlert(
+          criteriaFromFeedSearch({
+            query: trimmed,
+            city: getLocationCityFilter(selectedLocation),
+            category: tab.category,
+            propertyFor: tab.propertyFor,
+            propertyType: tab.propertyType,
+          }),
+          trimmed
+        );
+      }
+      navigate("/property-feed", {
+        state: { query: trimmed, location: selectedLocation },
+      });
       return;
+    }
+    if (user?.kyc_status === "verified") {
+      activityAPI
+        .trackSearch({
+          search_query: tab.label,
+          location_text: selectedLocation?.name || undefined,
+          property_type: tab?.propertyType,
+          transaction_type: tab?.propertyFor,
+        })
+        .catch(() => {});
+      syncSearchAlert(
+        criteriaFromFeedSearch({
+          city: getLocationCityFilter(selectedLocation),
+          category: tab.category,
+          propertyFor: tab.propertyFor,
+          propertyType: tab.propertyType,
+        }),
+        tab.label
+      );
     }
     navigate("/property-feed", {
       state: {
         category: tab.category,
         propertyFor: tab.propertyFor,
         propertyType: tab.propertyType,
+        location: selectedLocation,
       },
     });
-  }, [navigate, searchQuery, activeSearchTab]);
+  }, [navigate, searchQuery, activeSearchTab, selectedLocation, user?.kyc_status]);
 
   const handleQuickAction = useCallback(
     (action) => {
@@ -209,24 +308,24 @@ export default function HomePage() {
         case "favourites":
           navigate("/favourites");
           break;
+        case "advertise":
+          navigate("/advertise/my");
+          break;
         case "stories":
           document.getElementById("stories-section")?.scrollIntoView({ behavior: "smooth" });
-          break;
-        case "post":
-          handleCreatePost();
           break;
         default:
           break;
       }
     },
-    [navigate, handleCreatePost]
+    [navigate]
   );
 
   const handlePropertyClick = useCallback(
     (propertyId) => {
       setShowDropdown(false);
       setSearchQuery("");
-      navigate(`/property/${propertyId}`);
+      navigate(`/property/${propertyId}`, { state: { from: '/home' } });
     },
     [navigate]
   );
@@ -308,71 +407,20 @@ export default function HomePage() {
         onSuccess={handleStorySuccess}
       />
 
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-soft-sm safe-top">
-        <div className="px-4 py-3 max-w-6xl mx-auto">
-          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
-            <button
-              onClick={() => navigate("/home")}
-              className="flex min-w-0 flex-1 items-center gap-2 hover:opacity-85 transition-opacity sm:gap-2.5 sm:flex-none"
-            >
-              <TownExchangeLogo size={36} className="rounded-full bg-white shadow-soft-sm border border-gray-200" />
-              <div className="min-w-0 flex flex-col">
-                <span className="font-display text-sm sm:text-base font-semibold text-gray-900 leading-tight truncate">
-                  {APP_NAME}
-                </span>
-                <span className="flex items-center gap-1 text-xs text-gray-500">
-                  <MapPin className="w-3 h-3" />
-                  {APP_LOCATION}
-                </span>
-              </div>
-            </button>
-
-            <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 flex-shrink-0">
-              {user?.role === "buyer" && (
-                <button
-                  onClick={() => navigate("/favourites")}
-                  title="Favourites"
-                  className="inline-flex items-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-control text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  <Heart className="w-4 h-4" />
-                  <span className="hidden sm:inline">Favourites</span>
-                </button>
-              )}
-              {user?.role !== "buyer" && (
-                <button
-                  onClick={() => navigate(ROLE_HOME_ROUTE[user.role])}
-                  title="Dashboard"
-                  className="inline-flex items-center p-2 sm:px-3 sm:py-2 rounded-control text-sm font-medium text-brand-700 hover:bg-brand-50 transition-colors"
-                >
-                  <span className="hidden sm:inline">Dashboard</span>
-                  <Building2 className="w-4 h-4 sm:hidden" />
-                </button>
-              )}
-              <button
-                onClick={logoutToHome}
-                title="Log out"
-                className="p-2 rounded-control text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-              <button
-                onClick={handleCreatePost}
-                className="px-2.5 py-2 sm:px-4 sm:py-2.5 rounded-control font-medium text-sm flex items-center gap-1.5 text-white bg-brand-500 hover:bg-brand-700 shadow-soft-sm transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">{config.header.postButton.text || "Post Property"}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppNavbar
+        variant="home"
+        showLocation
+        onPostProperty={handleCreatePost}
+      />
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <AdvertisementSlider />
+
         <div>
           <h1 className="font-display text-xl sm:text-2xl font-semibold text-gray-900">
             {firstName ? `Hi ${firstName}` : "Find a property"}
           </h1>
-          <p className="mt-1 text-sm text-gray-500">Search listings in Chennai</p>
+          <p className="mt-1 text-sm text-gray-500">Search listings in {locationLabel}</p>
         </div>
 
         <div
@@ -384,10 +432,8 @@ export default function HomePage() {
               <button
                 key={tab.key}
                 onClick={() => setActiveSearchTab(tab.key)}
-                className={`flex-1 px-3 py-3 text-sm font-semibold border-b-2 transition-colors ${
-                  activeSearchTab === tab.key
-                    ? "border-brand-500 text-brand-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
+                className={`flex-1 px-3 py-3 text-sm font-semibold transition-all ${
+                  activeSearchTab === tab.key ? activeTabClass : inactiveTabClass
                 }`}
               >
                 {tab.label}
@@ -407,6 +453,7 @@ export default function HomePage() {
                   placeholder="Locality, e.g. Anna Nagar, Velachery..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
                   onKeyDown={(e) => e.key === "Enter" && handleTabSearch()}
                   className="w-full pl-11 pr-10 py-3 text-sm bg-gray-50 border border-gray-200 rounded-control focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                 />
@@ -422,6 +469,28 @@ export default function HomePage() {
                 {searching && (
                   <div className="absolute right-10 top-1/2 -translate-y-1/2">
                     <TownLoader size="xs" />
+                  </div>
+                )}
+
+                {searchFocused && !searchQuery.trim() && getRecentSearches("home").length > 0 && (
+                  <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-card shadow-soft-lg z-50 overflow-hidden">
+                    <p className="px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                      Recent searches
+                    </p>
+                    {getRecentSearches("home").map((term) => (
+                      <button
+                        key={term}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setSearchQuery(term);
+                          setSearchFocused(false);
+                        }}
+                        className="block w-full px-3 py-2.5 text-left text-sm hover:bg-brand-50"
+                      >
+                        {term}
+                      </button>
+                    ))}
                   </div>
                 )}
 
@@ -503,6 +572,49 @@ export default function HomePage() {
             </button>
           ))}
         </div>
+
+        {recommendationsLoading ? (
+          <div className="py-6 text-center text-sm text-gray-500">Loading recommendations...</div>
+        ) : recommendationSections.filter((s) => s.properties?.length > 0).length > 0 ? (
+          recommendationSections
+            .filter((section) => section.properties?.length > 0)
+            .map((section) => (
+              <section key={section.key}>
+                <h2 className="text-base font-semibold text-gray-900 mb-1">{section.title}</h2>
+                {section.subtitle ? (
+                  <p className="text-sm text-gray-500 mb-3">{section.subtitle}</p>
+                ) : null}
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                  {section.properties.map((property) => (
+                    <div key={property.id} className="w-64 shrink-0">
+                      <PropertyCard
+                        property={property}
+                        onOpenDetails={(propertyId) =>
+                          navigate(`/property/${propertyId}`, { state: { from: "/home" } })
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))
+        ) : recentViewed.length > 0 ? (
+          <section>
+            <h2 className="text-base font-semibold text-gray-900 mb-3">Recently viewed</h2>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              {recentViewed.map((property) => (
+                <div key={property.id} className="w-64 shrink-0">
+                  <PropertyCard
+                    property={property}
+                    onOpenDetails={(propertyId) =>
+                      navigate(`/property/${propertyId}`, { state: { from: "/home" } })
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {config.featuredSection?.enabled && (
           <section id="stories-section">
@@ -612,9 +724,8 @@ export default function HomePage() {
       <footer className="mt-8 bg-white border-t border-gray-100">
         <div className="max-w-6xl mx-auto px-4 py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <TownExchangeLogo size={28} />
-              <span className="font-display text-sm font-semibold text-gray-800">{APP_NAME}</span>
+            <div className="flex items-center gap-2.5">
+              <TownExchangeLogo size={32} variant="full" />
             </div>
             <FooterLinks />
           </div>

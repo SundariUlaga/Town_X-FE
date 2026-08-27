@@ -1,7 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { ArrowLeft, Upload, IndianRupee, X } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { propertyAPI } from "../services/api";
+import { LocationPicker } from "./shared/LocationPicker";
+import { useLocationContext } from "../context/LocationContext";
+import { useFocusTrap } from "@/lib/useFocusTrap";
+import { requiredMark } from "@/lib/statusStyles";
+import { clearPostDraft, loadPostDraft, savePostDraft } from "@/lib/postDraft";
 
 const backdropVariants = {
   hidden: { opacity: 0 },
@@ -32,11 +37,20 @@ function OptionButton({ selected, onClick, small = false, children }) {
   );
 }
 
-export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
+export default function CreatePostModal({ isOpen, onClose, onSuccess, editProperty = null }) {
   const shouldReduceMotion = useReducedMotion();
+  const { selectedLocation: navbarLocation } = useLocationContext();
   const [currentStep, setCurrentStep] = useState(1);
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [selectedDistrictId, setSelectedDistrictId] = useState("");
+  const [selectedTalukId, setSelectedTalukId] = useState("");
+  const [selectedVillageId, setSelectedVillageId] = useState("");
+  const [locationError, setLocationError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [draftPrompt, setDraftPrompt] = useState(null);
+  const closeRef = useRef(() => {});
   const [formData, setFormData] = useState({
     propertyFor: "",
     propertyType: "",
@@ -87,6 +101,157 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
     { label: "Photos" },
   ];
 
+  const validateStep = useCallback(
+    (step) => {
+      const errors = {};
+      if (step === 1) {
+        if (!formData.propertyFor) errors.propertyFor = "Select rent, sell, or PG";
+        if (!formData.propertyType) errors.propertyType = "Select property type";
+        if (!formData.userType) errors.userType = "Select owner or broker";
+        if (!formData.apartmentType) errors.apartmentType = "Select apartment type";
+        if (!formData.bhkType) errors.bhkType = "Select BHK type";
+      }
+      if (step === 2) {
+        if (!selectedDistrictId) errors.district = "Select a district";
+        if (!selectedTalukId) errors.taluk = "Select a taluk";
+        if (!selectedVillageId) errors.village = "Select a village";
+        if (!formData.address?.trim()) errors.address = "Address is required";
+        if (!formData.carpetArea || Number(formData.carpetArea) <= 0) {
+          errors.carpetArea = "Enter a valid carpet area";
+        }
+        if (formData.floor === "" || Number(formData.floor) < 0) errors.floor = "Enter floor number";
+        if (!formData.totalFloors || Number(formData.totalFloors) <= 0) {
+          errors.totalFloors = "Enter total floors";
+        }
+        if (!formData.propertyAge) errors.propertyAge = "Select property age";
+        if (!formData.furnishingStatus) errors.furnishingStatus = "Select furnishing";
+      }
+      if (step === 3) {
+        if (!formData.expectedPrice || Number(formData.expectedPrice) <= 0) {
+          errors.expectedPrice = "Enter a valid price";
+        }
+        if (!formData.availableFrom) errors.availableFrom = "Select available date";
+      }
+      return errors;
+    },
+    [formData, selectedDistrictId, selectedTalukId, selectedVillageId]
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (editProperty) {
+      setFormData({
+        propertyFor: editProperty.property_for || "",
+        propertyType: editProperty.property_type || "",
+        userType: editProperty.user_type || "",
+        bhkType: editProperty.bhk_type || "",
+        apartmentType: editProperty.apartment_type || "",
+        apartmentName: editProperty.apartment_name || "",
+        locality: editProperty.locality || "",
+        city: editProperty.city || "",
+        address: editProperty.address || "",
+        builtUpArea: editProperty.built_up_area ? String(editProperty.built_up_area) : "",
+        carpetArea: editProperty.carpet_area ? String(editProperty.carpet_area) : "",
+        floor: editProperty.floor != null ? String(editProperty.floor) : "",
+        totalFloors: editProperty.total_floors ? String(editProperty.total_floors) : "",
+        propertyAge: editProperty.property_age || "",
+        furnishingStatus: editProperty.furnishing_status || "",
+        parking: String(editProperty.parking ?? 0),
+        bathrooms: String(editProperty.bathrooms ?? 0),
+        balconies: String(editProperty.balconies ?? 0),
+        expectedPrice: editProperty.expected_price ? String(editProperty.expected_price) : "",
+        maintenanceCharges: editProperty.maintenance_charges ? String(editProperty.maintenance_charges) : "",
+        securityDeposit: editProperty.security_deposit ? String(editProperty.security_deposit) : "",
+        availableFrom: editProperty.available_from || "",
+        description: editProperty.description || "",
+        amenities: editProperty.amenities || [],
+      });
+      setExistingImages(editProperty.images || []);
+      setUploadedFiles([]);
+      setCurrentStep(1);
+      setDraftPrompt(null);
+      return;
+    }
+    const draft = loadPostDraft();
+    if (draft) {
+      setDraftPrompt(draft);
+      return;
+    }
+    if (navbarLocation?.district_id) {
+      setSelectedDistrictId(String(navbarLocation.district_id));
+      setFormData((prev) => ({
+        ...prev,
+        city: navbarLocation.district_name || prev.city,
+      }));
+      if (navbarLocation.type === "taluk") setSelectedTalukId(String(navbarLocation.id));
+      if (navbarLocation.type === "village") {
+        if (navbarLocation.taluk_id) setSelectedTalukId(String(navbarLocation.taluk_id));
+        setSelectedVillageId(String(navbarLocation.id));
+        setFormData((prev) => ({ ...prev, locality: navbarLocation.name }));
+      }
+    } else if (navbarLocation?.type === "district") {
+      setSelectedDistrictId(String(navbarLocation.id));
+      setFormData((prev) => ({ ...prev, city: navbarLocation.name }));
+    }
+  }, [isOpen, navbarLocation]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const timer = window.setTimeout(() => {
+      savePostDraft({
+        currentStep,
+        formData,
+        selectedDistrictId,
+        selectedTalukId,
+        selectedVillageId,
+        uploadedFileNames: uploadedFiles.map((f) => f.name),
+      });
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [isOpen, currentStep, formData, selectedDistrictId, selectedTalukId, selectedVillageId, uploadedFiles]);
+
+  const handleDistrictSelect = (district) => {
+    setSelectedDistrictId(district ? String(district.id) : "");
+    setSelectedTalukId("");
+    setSelectedVillageId("");
+    setFormData((prev) => ({
+      ...prev,
+      city: district?.name || "",
+      locality: "",
+    }));
+  };
+
+  const handleTalukSelect = (taluk) => {
+    setSelectedTalukId(taluk ? String(taluk.id) : "");
+    setSelectedVillageId("");
+    setFormData((prev) => ({ ...prev, locality: "" }));
+  };
+
+  const handleVillageSelect = (village) => {
+    setSelectedVillageId(village ? String(village.id) : "");
+    setFormData((prev) => ({ ...prev, locality: village?.name || "" }));
+  };
+
+  const resetLocationSelections = () => {
+    setSelectedDistrictId("");
+    setSelectedTalukId("");
+    setSelectedVillageId("");
+  };
+
+  const applyDraft = (draft) => {
+    setCurrentStep(draft.currentStep || 1);
+    setFormData((prev) => ({ ...prev, ...draft.formData }));
+    setSelectedDistrictId(draft.selectedDistrictId || "");
+    setSelectedTalukId(draft.selectedTalukId || "");
+    setSelectedVillageId(draft.selectedVillageId || "");
+    setDraftPrompt(null);
+  };
+
+  const discardDraft = () => {
+    clearPostDraft();
+    setDraftPrompt(null);
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -113,37 +278,12 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
   };
 
   const nextStep = () => {
-    if (currentStep === 1) {
-      if (
-        !formData.propertyFor ||
-        !formData.propertyType ||
-        !formData.userType ||
-        !formData.apartmentType ||
-        !formData.bhkType
-      ) {
-        alert("Please fill all required fields");
-        return;
-      }
-    } else if (currentStep === 2) {
-      if (
-        !formData.city ||
-        !formData.locality ||
-        !formData.address ||
-        !formData.carpetArea ||
-        !formData.floor ||
-        !formData.totalFloors ||
-        !formData.propertyAge ||
-        !formData.furnishingStatus
-      ) {
-        alert("Please fill all required fields");
-        return;
-      }
-    } else if (currentStep === 3) {
-      if (!formData.expectedPrice || !formData.availableFrom) {
-        alert("Please fill all required fields");
-        return;
-      }
+    const errors = validateStep(currentStep);
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
     }
+    setFieldErrors({});
     setCurrentStep((prev) => Math.min(prev + 1, 4));
   };
 
@@ -151,6 +291,10 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
 
   const handleClose = () => {
     if (uploading) return;
+    resetLocationSelections();
+    setLocationError(null);
+    setFieldErrors({});
+    setDraftPrompt(null);
     setFormData({
       propertyFor: "",
       propertyType: "",
@@ -178,12 +322,17 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
       amenities: [],
     });
     setUploadedFiles([]);
+    setExistingImages([]);
     setCurrentStep(1);
     onClose();
   };
 
+  closeRef.current = handleClose;
+  const modalRef = useFocusTrap(isOpen, () => closeRef.current());
+
   const handleSubmit = async () => {
-    if (uploadedFiles.length < 1) {
+    const totalImages = uploadedFiles.length + existingImages.length;
+    if (totalImages < 1) {
       alert("Please upload at least 1 property image");
       return;
     }
@@ -225,9 +374,12 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
         submitData.append("files", file);
       });
 
-      const response = await propertyAPI.createProperty(submitData);
+      const response = editProperty
+        ? await propertyAPI.updateProperty(editProperty.id, submitData)
+        : await propertyAPI.createProperty(submitData);
 
-      alert("Property posted successfully!");
+      clearPostDraft();
+      alert(editProperty ? "Listing updated and resubmitted for review!" : "Property posted successfully!");
       if (onSuccess) {
         onSuccess(response.id);
       }
@@ -263,9 +415,13 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
           exit="exit"
         >
           <motion.div
+            ref={modalRef}
             className="w-full max-w-lg bg-white rounded-t-2xl sm:rounded-card shadow-soft-lg border border-brand-100 max-h-[92dvh] sm:max-h-[95vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
             variants={modalVariants}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-post-title"
           >
             {/* Header - More Compact */}
             <header className="px-3 py-2.5 border-b border-gray-200 flex items-center justify-between flex-shrink-0 bg-white rounded-t-card">
@@ -277,7 +433,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
                 >
                   <ArrowLeft size={20} className="text-gray-700" />
                 </button>
-                <h1 className="text-sm md:text-base font-semibold text-gray-800">
+                <h1 id="create-post-title" className="text-sm md:text-base font-semibold text-gray-800">
                   Post Your Property
                 </h1>
               </div>
@@ -362,6 +518,33 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
 
             {/* Scrollable content - More Compact */}
             <div className="flex-1 overflow-y-auto px-3 py-3 bg-gray-50">
+              {draftPrompt ? (
+                <div className="mb-3 rounded-card border border-status-pending/30 bg-status-pending-bg p-3">
+                  <p className="text-xs font-medium text-foreground">Resume your draft?</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Saved {new Date(draftPrompt.savedAt).toLocaleString("en-IN")}
+                    {draftPrompt.uploadedFileNames?.length
+                      ? ` · ${draftPrompt.uploadedFileNames.length} photo name(s) remembered (re-upload photos)`
+                      : ""}
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => applyDraft(draftPrompt)}
+                      className="rounded-control bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white"
+                    >
+                      Resume
+                    </button>
+                    <button
+                      type="button"
+                      onClick={discardDraft}
+                      className="rounded-control border border-border px-3 py-1.5 text-xs font-medium"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <AnimatePresence mode="wait">
                 <motion.div
                   key={currentStep}
@@ -379,7 +562,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          You are looking to<span className="text-red-500">*</span>
+                          You are looking to<span className={requiredMark}>*</span>
                         </label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {["Rent/Lease", "Sell", "PG/Hostel"].map((option) => (
@@ -396,7 +579,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          Property Type<span className="text-red-500">*</span>
+                          Property Type<span className={requiredMark}>*</span>
                         </label>
                         <div className="grid grid-cols-2 gap-2">
                           {["Residential", "Commercial"].map((option) => (
@@ -413,7 +596,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          You are<span className="text-red-500">*</span>
+                          You are<span className={requiredMark}>*</span>
                         </label>
                         <div className="grid grid-cols-2 gap-2">
                           {["Owner", "Broker/Agent"].map((option) => (
@@ -430,7 +613,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          Apartment Type<span className="text-red-500">*</span>
+                          Apartment Type<span className={requiredMark}>*</span>
                         </label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {[
@@ -454,7 +637,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          BHK Type<span className="text-red-500">*</span>
+                          BHK Type<span className={requiredMark}>*</span>
                         </label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {[
@@ -485,35 +668,23 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
                         Property Details
                       </h2>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            City<span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            name="city"
-                            value={formData.city}
-                            onChange={handleInputChange}
-                            placeholder="Enter city"
-                            className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Locality<span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            name="locality"
-                            value={formData.locality}
-                            onChange={handleInputChange}
-                            placeholder="Enter locality/area"
-                            className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
-                          />
-                        </div>
-                      </div>
+                      <LocationPicker
+                        mode="cascading"
+                        selectedDistrictId={selectedDistrictId}
+                        selectedTalukId={selectedTalukId}
+                        selectedVillageId={selectedVillageId}
+                        onDistrictSelect={handleDistrictSelect}
+                        onTalukSelect={handleTalukSelect}
+                        onVillageSelect={handleVillageSelect}
+                        locationError={locationError}
+                      />
+                      {fieldErrors.district || fieldErrors.taluk || fieldErrors.village ? (
+                        <p className="text-xs text-status-error">
+                          {[fieldErrors.district, fieldErrors.taluk, fieldErrors.village]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      ) : null}
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -531,7 +702,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Full Address<span className="text-red-500">*</span>
+                          Full Address<span className={requiredMark}>*</span>
                         </label>
                         <textarea
                           name="address"
@@ -547,7 +718,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Carpet Area (sq.ft)
-                            <span className="text-red-500">*</span>
+                            <span className={requiredMark}>*</span>
                           </label>
                           <input
                             type="number"
@@ -576,7 +747,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Floor Number<span className="text-red-500">*</span>
+                            Floor Number<span className={requiredMark}>*</span>
                           </label>
                           <input
                             type="number"
@@ -589,7 +760,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Total Floors<span className="text-red-500">*</span>
+                            Total Floors<span className={requiredMark}>*</span>
                           </label>
                           <input
                             type="number"
@@ -604,7 +775,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          Property Age<span className="text-red-500">*</span>
+                          Property Age<span className={requiredMark}>*</span>
                         </label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {["0-1 Year", "1-5 Years", "5-10 Years", "10+ Years"].map(
@@ -624,7 +795,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          Furnishing Status<span className="text-red-500">*</span>
+                          Furnishing Status<span className={requiredMark}>*</span>
                         </label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {[
@@ -720,7 +891,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
                           Expected Price (₹)
-                          <span className="text-red-500">*</span>
+                          text-red-500
                         </label>
                         <div className="relative">
                           <IndianRupee
@@ -784,7 +955,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Available From<span className="text-red-500">*</span>
+                          Available From<span className={requiredMark}>*</span>
                         </label>
                         <input
                           type="date"
@@ -818,8 +989,26 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
                   {currentStep === 4 && (
                     <div className="bg-white rounded-card shadow-soft-sm border border-gray-100 p-4 space-y-3">
                       <h2 className="text-sm font-semibold text-gray-800 mb-1">
-                        Upload Property Photos
+                        {editProperty ? "Update property photos" : "Upload Property Photos"}
                       </h2>
+
+                      {existingImages.length > 0 && (
+                        <div>
+                          <h3 className="text-xs font-semibold text-gray-700 mb-2">
+                            Current photos ({existingImages.length}) — upload new files to replace all
+                          </h3>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {existingImages.map((img, index) => (
+                              <img
+                                key={img.public_id || index}
+                                src={img.url}
+                                alt={`Existing ${index + 1}`}
+                                className="w-full h-24 object-cover rounded-control border border-gray-200"
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="border-2 border-dashed border-brand-200 bg-brand-50/30 rounded-card p-4 text-center hover:border-brand-400 hover:bg-brand-50/60 transition-colors">
                         <Upload className="mx-auto mb-2 text-brand-400" size={32} />

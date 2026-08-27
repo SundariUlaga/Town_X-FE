@@ -141,7 +141,7 @@ export function SignupForm({ defaultRole = "buyer", onSuccess, onSwitchToLogin }
 
       <Button type="submit" className="w-full gap-2" disabled={isSubmitting}>
         {isSubmitting ? <TownLoader size="xs" /> : null}
-        Create account
+        Proceed
       </Button>
 
       {onSwitchToLogin && (

@@ -3,7 +3,7 @@ import { Camera, Image as ImageIcon, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8005";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8024";
 
 const backdropVariants = {
   hidden: { opacity: 0 },

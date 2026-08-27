@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
 import DynamicLandingPage from "./components/DynamicLandingPage";
 import AboutUsPage from "@/components/legal/AboutUsPage";
@@ -17,7 +17,19 @@ const PropertyFeed = lazy(() => import("./components/PropertyFeed"));
 const PropertyDetails = lazy(() => import("./components/PropertyDetails"));
 const Favourites = lazy(() => import("./components/Favourites"));
 const OwnerDashboard = lazy(() => import("./components/dashboard/OwnerDashboard"));
-const AdminDashboard = lazy(() => import("./components/dashboard/AdminDashboard"));
+const KycVerificationPage = lazy(() => import("@/components/kyc/KycVerificationPage"));
+const KycCallbackPage = lazy(() => import("@/components/kyc/KycCallbackPage"));
+const AccountShell = lazy(() => import("@/components/account/AccountShell"));
+const ProfilePage = lazy(() => import("@/components/account/ProfilePage"));
+const QuestionsPage = lazy(() => import("@/components/account/QuestionsPage"));
+const AccountFaqsPage = lazy(() => import("@/components/account/AccountFaqsPage"));
+const SettingsPage = lazy(() => import("@/components/account/SettingsPage"));
+const NotificationsPage = lazy(() => import("@/components/account/NotificationsPage"));
+const SubmitAdvertisementPage = lazy(() => import("@/components/advertisements/SubmitAdvertisementPage"));
+const MyAdvertisementsPage = lazy(() => import("@/components/advertisements/MyAdvertisementsPage"));
+const EditAdvertisementPage = lazy(() => import("@/components/advertisements/EditAdvertisementPage"));
+const AdminAppRedirect = lazy(() => import("@/components/admin/AdminAppRedirect"));
+const MyEnquiriesPage = lazy(() => import("@/components/enquiries/MyEnquiriesPage"));
 
 function Lazy({ children }) {
   return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
@@ -35,6 +47,27 @@ function App() {
           <Route path="/faqs" element={<FaqsPage />} />
           <Route path="/login" element={<AuthRouteRedirect mode="login" />} />
           <Route path="/signup" element={<AuthRouteRedirect mode="signup" />} />
+
+          <Route
+            path="/kyc"
+            element={
+              <ProtectedRoute>
+                <Lazy>
+                  <KycVerificationPage />
+                </Lazy>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kyc/callback"
+            element={
+              <ProtectedRoute>
+                <Lazy>
+                  <KycCallbackPage />
+                </Lazy>
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/home"
@@ -89,6 +122,17 @@ function App() {
           />
 
           <Route
+            path="/enquiries"
+            element={
+              <ProtectedRoute>
+                <Lazy>
+                  <MyEnquiriesPage />
+                </Lazy>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/owner/dashboard"
             element={
               <ProtectedRoute allowedRoles={["owner"]}>
@@ -103,11 +147,118 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <Lazy>
-                  <AdminDashboard />
+                  <AdminAppRedirect path="/dashboard" />
                 </Lazy>
               </ProtectedRoute>
             }
           />
+
+          <Route
+            path="/admin/advertisements"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <Lazy>
+                  <AdminAppRedirect path="/advertisements" />
+                </Lazy>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/*"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <Lazy>
+                  <AdminAppRedirect />
+                </Lazy>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/advertise/submit"
+            element={
+              <ProtectedRoute>
+                <Lazy>
+                  <SubmitAdvertisementPage />
+                </Lazy>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/advertise/my"
+            element={
+              <ProtectedRoute>
+                <Lazy>
+                  <MyAdvertisementsPage />
+                </Lazy>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/advertise/edit/:id"
+            element={
+              <ProtectedRoute>
+                <Lazy>
+                  <EditAdvertisementPage />
+                </Lazy>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/account"
+            element={
+              <ProtectedRoute>
+                <Lazy>
+                  <AccountShell />
+                </Lazy>
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="profile" replace />} />
+            <Route
+              path="profile"
+              element={
+                <Lazy>
+                  <ProfilePage />
+                </Lazy>
+              }
+            />
+            <Route
+              path="questions"
+              element={
+                <Lazy>
+                  <QuestionsPage />
+                </Lazy>
+              }
+            />
+            <Route
+              path="notifications"
+              element={
+                <Lazy>
+                  <NotificationsPage />
+                </Lazy>
+              }
+            />
+            <Route
+              path="faq"
+              element={
+                <Lazy>
+                  <AccountFaqsPage />
+                </Lazy>
+              }
+            />
+            <Route
+              path="settings"
+              element={
+                <Lazy>
+                  <SettingsPage />
+                </Lazy>
+              }
+            />
+          </Route>
+
+          <Route path="*" element={<DynamicLandingPage />} />
         </Routes>
       </AuthDrawerProvider>
     </Router>

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Building2, Camera, Eye, TrendingUp } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Building2, Camera, Eye, Megaphone, TrendingUp } from "lucide-react";
 
 import { propertyAPI } from "@/services/api";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
@@ -63,6 +64,24 @@ export default function AdminDashboard() {
               })}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Advertisements</CardTitle>
+          <Link
+            to="/admin/advertisements"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            <Megaphone className="size-4" />
+            Manage ads
+          </Link>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Review user submissions, schedule homepage slider banners, and track ad performance.
+          </p>
         </CardContent>
       </Card>
     </DashboardShell>

@@ -84,7 +84,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
 
       <Button type="submit" className="w-full gap-2" disabled={isSubmitting}>
         {isSubmitting ? <TownLoader size="xs" /> : null}
-        Log in
+        Proceed
       </Button>
 
       {onSwitchToSignup && (

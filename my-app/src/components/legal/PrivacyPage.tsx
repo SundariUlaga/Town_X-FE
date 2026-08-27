@@ -1,6 +1,6 @@
 import { LegalPageLayout } from "@/components/legal/LegalPageLayout";
 import { LegalList, LegalNote, LegalSection } from "@/components/legal/LegalProse";
-import { APP_NAME } from "@/components/brand/TownExchangeLogo";
+import { APP_NAME, APP_LOCATION } from "@/components/brand/TownExchangeLogo";
 
 const LAST_UPDATED = "August 5, 2026";
 
@@ -159,7 +159,7 @@ export default function PrivacyPage() {
           items={[
             "Privacy enquiries: privacy@townexchange.in",
             "General support: support@townexchange.in",
-            "Stack Rack — Town Exchange, Chennai, Tamil Nadu, India",
+            `Stack Rack — ${APP_NAME}, ${APP_LOCATION}, Tamil Nadu, India`,
           ]}
         />
       </LegalSection>

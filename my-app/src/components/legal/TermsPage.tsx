@@ -1,6 +1,6 @@
 import { LegalPageLayout } from "@/components/legal/LegalPageLayout";
 import { LegalList, LegalNote, LegalSection } from "@/components/legal/LegalProse";
-import { APP_NAME } from "@/components/brand/TownExchangeLogo";
+import { APP_NAME, APP_LOCATION } from "@/components/brand/TownExchangeLogo";
 
 const LAST_UPDATED = "August 5, 2026";
 
@@ -163,7 +163,7 @@ export default function TermsPage() {
       <LegalSection title="13. Governing law">
         <p>
           These Terms are governed by the laws of India. Any disputes shall be subject to the
-          exclusive jurisdiction of the courts in Chennai, Tamil Nadu, unless otherwise required
+          exclusive jurisdiction of the courts in {APP_LOCATION}, Tamil Nadu, unless otherwise required
           by applicable consumer protection law.
         </p>
       </LegalSection>
@@ -171,10 +171,10 @@ export default function TermsPage() {
       <LegalSection title="14. Contact">
         <LegalList
           items={[
-            "Stack Rack — Town Exchange",
+            `Stack Rack — ${APP_NAME}`,
             "Email: legal@townexchange.in",
             "Support: support@townexchange.in",
-            "Chennai, Tamil Nadu, India",
+            `${APP_LOCATION}, Tamil Nadu, India`,
           ]}
         />
       </LegalSection>

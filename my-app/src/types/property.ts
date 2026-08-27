@@ -35,8 +35,24 @@ export interface Property {
   amenities: string[];
   images: PropertyImage[];
   is_favourite: boolean;
+  status?: string;
+  admin_notes?: string | null;
+  review_notes?: PropertyReviewNote[];
+  verification_tier?: string;
+  survey_parcel_number?: string | null;
+  encumbrance_certificate_status?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface PropertyReviewNote {
+  id: number;
+  property_id: number;
+  admin_user_id?: number | null;
+  admin_name?: string | null;
+  note_type: string;
+  note: string;
+  created_at: string;
 }
 
 /**

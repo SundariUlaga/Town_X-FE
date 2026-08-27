@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base API URL - Update this to your backend URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8005';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8024';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -45,14 +45,16 @@ export const propertyAPI = {
     }
   },
 
-  // Search properties
-  searchProperties: async (query, limit = 20) => {
+  // Search properties (optional AbortSignal cancels in-flight request on new keystrokes)
+  searchProperties: async (query, limit = 20, signal) => {
     try {
       const response = await api.get('/api/properties/search', {
-        params: { q: query, limit }
+        params: { q: query, limit },
+        signal,
       });
       return response.data;
     } catch (error) {
+      if (axios.isCancel(error)) throw error;
       console.error('Error searching properties:', error);
       throw error;
     }
@@ -69,6 +71,20 @@ export const propertyAPI = {
       return response.data;
     } catch (error) {
       console.error('Error creating property:', error);
+      throw error;
+    }
+  },
+
+  updateProperty: async (id, formData) => {
+    try {
+      const response = await api.patch(`/api/properties/${id}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating property:', error);
       throw error;
     }
   },
@@ -152,6 +168,70 @@ export const propertyAPI = {
       console.error('Error fetching favourites count:', error);
       throw error;
     }
+  },
+};
+
+export const enquiryAPI = {
+  create: async (payload) => {
+    const { data } = await api.post('/api/enquiries', payload);
+    return data;
+  },
+  mine: async () => {
+    const { data } = await api.get('/api/enquiries/mine');
+    return data;
+  },
+  received: async () => {
+    const { data } = await api.get('/api/enquiries/received');
+    return data;
+  },
+};
+
+export const reportAPI = {
+  reportProperty: async (payload) => {
+    const { data } = await api.post('/api/reports/properties', payload);
+    return data;
+  },
+};
+
+export const activityAPI = {
+  trackSearch: async (params = {}) => {
+    const { data } = await api.post('/api/activity/search', null, { params });
+    return data;
+  },
+};
+
+export const recommendationsAPI = {
+  getHome: async () => {
+    const { data } = await api.get('/api/recommendations/home');
+    return data;
+  },
+};
+
+// Tamil Nadu location hierarchy (District → Taluk → Village)
+export const locationAPI = {
+  getDistricts: async () => {
+    const response = await api.get('/api/locations/districts');
+    return response.data;
+  },
+
+  getTaluks: async (districtId) => {
+    const response = await api.get(`/api/locations/taluks/${districtId}`);
+    return response.data;
+  },
+
+  getVillages: async (talukId, q) => {
+    const response = await api.get(`/api/locations/villages/${talukId}`, {
+      params: q ? { q } : undefined,
+    });
+    return response.data;
+  },
+
+  search: async (query, limit = 20, signal) => {
+    const response = await api.get('/api/locations/search', {
+      params: { q: query, limit },
+      signal,
+    });
+    return response.data;
   },
 };
 

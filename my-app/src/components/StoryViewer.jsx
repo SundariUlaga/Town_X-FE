@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import axios from 'axios';
 import TownLoader from '@/components/shared/TownLoader';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8005';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8024';
 
 export default function StoryViewer() {
   const { id } = useParams();

@@ -25,7 +25,7 @@ This is a React-based property listing application built with Vite. The app allo
 - Base API configured in `services/configAPI.js`
 - API endpoints defined in `services/api.js`
 - Environment variables used for API URL (VITE_API_URL)
-- Default fallback to 'http://localhost:8000'
+- Default fallback to 'http://localhost:8024'
 
 ## Development Workflow
 

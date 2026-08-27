@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Users2 } from "lucide-react";
 
-import { TownExchangeLogo, APP_NAME } from "@/components/brand/TownExchangeLogo";
+import { TownExchangeLogo, APP_NAME, APP_LOCATION } from "@/components/brand/TownExchangeLogo";
 import { FooterLinks } from "@/components/legal/FooterLinks";
 
 const STACK_RACK_TAG = "A Stack Rack product";
@@ -19,17 +19,14 @@ export function LegalPageLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#f7f8fa] text-gray-900 overflow-x-hidden">
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur-xl safe-top">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3">
           <Link
             to="/"
             className="flex min-w-0 items-center gap-2.5 hover:opacity-85 transition-opacity"
           >
-            <TownExchangeLogo size={32} />
-            <span className="font-display truncate text-sm font-semibold text-gray-800">
-              {APP_NAME}
-            </span>
+            <TownExchangeLogo size={36} variant="full" />
           </Link>
           <Link
             to="/"
@@ -68,15 +65,14 @@ export function LegalPageLayout({
         <div className="mx-auto max-w-4xl px-4 py-8">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2.5">
-              <TownExchangeLogo size={28} />
-              <span className="font-display text-sm font-semibold text-gray-800">{APP_NAME}</span>
+              <TownExchangeLogo size={32} variant="full" />
             </div>
             <FooterLinks />
           </div>
           <div className="mt-6 flex items-center justify-center gap-1.5 border-t border-gray-200 pt-6 text-xs text-gray-500">
             <Users2 className="size-3.5" />
             <span>
-              &copy; {new Date().getFullYear()} {APP_NAME}. Built for Chennai, by Chennai.
+              &copy; {new Date().getFullYear()} {APP_NAME}. Built for {APP_LOCATION}, by {APP_LOCATION}.
             </span>
           </div>
         </div>

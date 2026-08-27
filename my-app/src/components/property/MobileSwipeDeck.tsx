@@ -1,3 +1,12 @@
+/*
+ * Mobile swipe deck — grid parity checklist
+ * -----------------------------------------
+ * [x] Favourite toggles call the same propertyAPI.toggleFavourite as desktop PropertyCard
+ * [x] Filter/sort/category state lives in PropertyFeed parent — shared across md breakpoint
+ * [x] Restore stack (undo swipe) is mobile-only; grid has no swipe stack equivalent (N/A)
+ * [x] Keyboard/button fallbacks: skip, save, undo exposed below deck (PropertyFeed.jsx)
+ * [ ] View counts / interest metrics — not on backend; do not surface here
+ */
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import {
   motion,

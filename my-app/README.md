@@ -84,7 +84,7 @@ cp .env.example .env
 For local development:
 
 ```env
-VITE_API_URL=http://localhost:8005
+VITE_API_URL=http://localhost:8024
 ```
 
 ### 3.3 — Change the URL if needed
@@ -92,7 +92,7 @@ VITE_API_URL=http://localhost:8005
 If your API runs on a different address, update the value:
 
 ```env
-VITE_API_URL=http://localhost:8005
+VITE_API_URL=http://localhost:8024
 ```
 
 For production:
@@ -104,7 +104,7 @@ VITE_API_URL=https://api.yourdomain.com
 **What this line means:**
 
 - `VITE_API_URL` — the API address this app will call  
-  If you skip this file, it defaults to `http://localhost:8000`
+  If you skip this file, it defaults to `http://localhost:8024`
 
 **Rules:**
 - Must start with `VITE_` (Vite only reads variables with this prefix)
@@ -130,7 +130,7 @@ You should see something like:
 ```
   VITE v7.x.x  ready in xxx ms
 
-  ➜  Local:   http://localhost:5175/
+  ➜  Local:   http://localhost:5188/
 ```
 
 **Keep this terminal open.**
@@ -139,7 +139,7 @@ You should see something like:
 
 ## Step 5: Open the app and check it works
 
-1. Open http://localhost:5175 in your browser
+1. Open http://localhost:5188 in your browser
 2. The landing page should load
 3. Press **F12** to open DevTools → go to the **Network** tab
 4. Refresh the page
@@ -167,7 +167,7 @@ npm run dev
 ## Other useful commands
 
 ```bash
-npm run dev       # Start dev server (http://localhost:5175)
+npm run dev       # Start dev server (http://localhost:5188)
 npm run build     # Build for production → creates dist/ folder
 npm run preview   # Preview the production build locally
 npm run lint      # Check code with ESLint
@@ -202,7 +202,7 @@ The build embeds `VITE_API_URL` at build time — changing `.env` after `npm run
 **Changed `.env` but nothing changed**  
 → Stop the dev server (`Ctrl+C`) and run `npm run dev` again.
 
-**Port 5175 already in use**  
+**Port 5188 already in use**  
 → Run on another port: `npm run dev -- --port 5176`
 
 ---

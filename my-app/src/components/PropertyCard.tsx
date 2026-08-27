@@ -22,6 +22,8 @@ import {
 
 import { propertyAPI } from "@/services/api";
 import { formatInr } from "@/lib/finance";
+import { formatRelativeTime } from "@/lib/formatRelativeTime";
+import { statusBadgeClass } from "@/lib/statusStyles";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -172,7 +174,7 @@ export function PropertyCard({
 
           {/* Type / status badges — real data */}
           <div className="absolute left-2 top-2 flex flex-wrap gap-1.5">
-            <Badge className="bg-emerald-500 text-white border-transparent shadow-soft-sm">
+            <Badge className="bg-brand-500 text-white border-transparent shadow-soft-sm">
               For {property.property_for}
             </Badge>
             {enrichment?.isFeatured && (
@@ -183,6 +185,21 @@ export function PropertyCard({
             {enrichment?.isPremium && (
               <Badge className="bg-brand-700 text-white border-transparent shadow-soft-sm">
                 <Sparkles className="size-3" /> Premium
+              </Badge>
+            )}
+            {property.user_type === "Owner" && (
+              <span className={statusBadgeClass("success")}>
+                <ShieldCheck className="size-3" /> Direct owner
+              </span>
+            )}
+            {property.verification_tier === "verified" && (
+              <Badge variant="success" className="bg-white/95 border-transparent shadow-soft-sm">
+                <ShieldCheck className="size-3" /> Verified docs
+              </Badge>
+            )}
+            {property.verification_tier === "pending" && (
+              <Badge className="bg-amber-100 text-amber-800 border-transparent shadow-soft-sm">
+                Verification pending
               </Badge>
             )}
             {enrichment?.isVerified && (
@@ -261,6 +278,12 @@ export function PropertyCard({
             )}
           </div>
 
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+            {property.created_at ? (
+              <span>{formatRelativeTime(property.created_at)}</span>
+            ) : null}
+          </div>
+
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             {property.bhk_type && property.bhk_type.split(" ")[0] !== "Studio" && (
               <span className="flex items-center gap-1">
@@ -288,7 +311,7 @@ export function PropertyCard({
                 </span>
               )}
               {enrichment.investmentScore != null && (
-                <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                <span className="flex items-center gap-1 text-brand-600 font-medium">
                   <TrendingUp className="size-3" /> Investment score {enrichment.investmentScore}/100
                 </span>
               )}

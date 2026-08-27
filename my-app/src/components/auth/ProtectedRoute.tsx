@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, KYC_ROUTE } from "@/context/AuthContext";
 import { AuthRequiredRedirect } from "@/components/auth/AuthRouteRedirect";
 import TownLoader from "@/components/shared/TownLoader";
 import type { UserRole } from "@/types/user";
@@ -32,6 +32,17 @@ export function ProtectedRoute({
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
+  }
+
+  const isKycExempt = location.pathname.startsWith(KYC_ROUTE);
+  if (user && user.kyc_status !== "verified" && !isKycExempt) {
+    return (
+      <Navigate
+        to={KYC_ROUTE}
+        replace
+        state={{ from: location.pathname, feedState: location.state }}
+      />
+    );
   }
 
   return <>{children}</>;

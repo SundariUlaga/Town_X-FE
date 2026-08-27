@@ -7,7 +7,6 @@ import {
   ShieldCheck,
   Camera,
   Building2,
-  LogOut,
   ArrowRight,
   Sparkles,
   Users2,
@@ -26,13 +25,12 @@ import {
   useMotionValue,
 } from "motion/react";
 import { useNavigate } from "react-router-dom";
-import { useAuth, ROLE_HOME_ROUTE } from "../context/AuthContext";
+import { useAuth, getPostAuthRoute, KYC_ROUTE, ROLE_HOME_ROUTE } from "../context/AuthContext";
 import { useAuthDrawer, useLogout } from "@/context/AuthDrawerContext";
 
-import { TownExchangeLogo, APP_NAME } from "@/components/brand/TownExchangeLogo";
+import { TownExchangeLogo, APP_NAME, APP_LOCATION } from "@/components/brand/TownExchangeLogo";
 import { FooterLinks } from "@/components/legal/FooterLinks";
 
-const APP_LOCATION = "Chennai, India";
 const STACK_RACK_TAG = "A Stack Rack product";
 
 const WHY_US = [
@@ -40,14 +38,14 @@ const WHY_US = [
     icon: Percent,
     title: "No Brokerage Fees",
     description: "Connect with owners directly — zero middleman commission.",
-    accent: "from-blue-500/10 to-brand-500/5",
-    glow: "group-hover:shadow-[0_12px_40px_rgba(37,99,235,0.15)]",
+    accent: "from-brand-500/10 to-secondary-500/5",
+    glow: "group-hover:shadow-[0_12px_40px_rgba(168,85,247,0.18)]",
   },
   {
     icon: Images,
     title: "Rich Photo Galleries",
     description: "Every listing comes with real, high-quality property photos.",
-    accent: "from-violet-500/10 to-purple-500/5",
+    accent: "from-brand-500/10 to-secondary-500/5",
     glow: "group-hover:shadow-[0_12px_40px_rgba(139,92,246,0.15)]",
   },
   {
@@ -94,7 +92,7 @@ const AUDIENCES = [
     icon: Home,
     title: "For Buyers & Renters",
     points: [
-      "Browse verified Chennai listings",
+      "Browse verified Your Town listings",
       "Save and compare favourites",
       "Contact owners directly",
     ],
@@ -112,14 +110,14 @@ const AUDIENCES = [
     ],
     cta: "Sign up as Owner",
     role: "owner",
-    gradient: "from-emerald-600 to-teal-700",
+    gradient: "from-secondary-500 to-secondary-700",
   },
 ];
 
 const MARQUEE_ITEMS = [
   "Zero brokerage",
   "Direct owner contact",
-  "Chennai focused",
+  "Your Town focused",
   "24-hour stories",
   "Save favourites",
   "Rich photo galleries",
@@ -228,7 +226,7 @@ function DotGrid() {
         animate={reduceMotion ? undefined : { backgroundPosition: ["0px 0px", "28px 28px"] }}
         transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-[#f7f8fa] via-transparent to-[#f7f8fa]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background" />
     </div>
   );
 }
@@ -246,10 +244,10 @@ function HeroFloatingCard({ card, reduceMotion }) {
         animate={reduceMotion ? undefined : { y: [0, -10, 0] }}
         transition={{ duration: 4 + card.delay, repeat: Infinity, ease: "easeInOut" }}
       >
-        <div className="h-16 rounded-control bg-gradient-to-br from-brand-100 to-violet-100 mb-2 flex items-center justify-center">
+        <div className="h-16 rounded-control bg-gradient-to-br from-brand-100 to-brand-200 mb-2 flex items-center justify-center">
           <Building2 className="w-7 h-7 text-brand-500/70" />
         </div>
-        <p className="text-xs font-bold text-gray-900">{card.bhk} · {card.area}</p>
+        <p className="text-xs font-bold text-foreground">{card.bhk} · {card.area}</p>
         <p className="text-sm font-semibold text-brand-600 mt-0.5">{card.price}</p>
         <div className="flex items-center gap-1 mt-1.5">
           <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
@@ -265,9 +263,9 @@ function AnimatedHeadline({ reduceMotion }) {
 
   if (reduceMotion) {
     return (
-      <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight text-gray-900 leading-[1.08]">
+      <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight text-foreground leading-[1.08]">
         Find your next home
-        <span className="block mt-1 bg-gradient-to-r from-brand-600 via-brand-500 to-violet-600 bg-clip-text text-transparent">
+        <span className="block mt-1 bg-gradient-to-r from-brand-700 via-brand-500 to-secondary-500 bg-clip-text text-transparent">
           without the brokerage
         </span>
       </h1>
@@ -277,7 +275,7 @@ function AnimatedHeadline({ reduceMotion }) {
   return (
     <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight leading-[1.08]">
       <motion.span
-        className="block text-gray-900"
+        className="block text-foreground"
         initial={{ opacity: 0, y: 24, filter: "blur(8px)" }}
         animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
         transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
@@ -285,7 +283,7 @@ function AnimatedHeadline({ reduceMotion }) {
         {words[0]}
       </motion.span>
       <motion.span
-        className="block mt-1 bg-gradient-to-r from-brand-600 via-brand-500 to-violet-600 bg-clip-text text-transparent bg-[length:200%_auto]"
+        className="block mt-1 bg-gradient-to-r from-brand-700 via-brand-500 to-secondary-500 bg-clip-text text-transparent bg-[length:200%_auto]"
         initial={{ opacity: 0, y: 24, filter: "blur(8px)" }}
         animate={{
           opacity: 1,
@@ -335,10 +333,10 @@ function SectionHeading({ title, subtitle }) {
   return (
     <motion.div variants={fadeUp} className="text-center mb-10 md:mb-12">
       <motion.div
-        className="mx-auto mb-4 h-1 w-12 rounded-full bg-gradient-to-r from-brand-500 to-violet-500"
+        className="mx-auto mb-4 h-1 w-12 rounded-full bg-gradient-to-r from-brand-500 to-secondary-500"
         variants={fadeScale}
       />
-      <h2 className="text-2xl md:text-3xl font-semibold text-gray-900">{title}</h2>
+      <h2 className="text-2xl md:text-3xl font-semibold text-foreground">{title}</h2>
       {subtitle && (
         <p className="mt-2 text-sm md:text-base text-gray-500 max-w-xl mx-auto">{subtitle}</p>
       )}
@@ -404,7 +402,7 @@ function AnimatedStat({ value, suffix, label, prefix = "", reduceMotion }) {
 
   return (
     <motion.div ref={ref} variants={fadeUp} className="text-center px-4">
-      <p className="font-display text-3xl sm:text-4xl font-semibold text-gray-900">
+      <p className="font-display text-3xl sm:text-4xl font-semibold text-foreground">
         {prefix}{count}{suffix}
       </p>
       <p className="mt-1 text-xs sm:text-sm text-gray-500">{label}</p>
@@ -424,7 +422,7 @@ function GlowButton({ children, onClick, variant = "primary", className = "", re
     >
       {isPrimary && !reduceMotion && (
         <motion.span
-          className="absolute inset-0 bg-gradient-to-r from-brand-400 via-violet-400 to-brand-400 opacity-0"
+          className="absolute inset-0 bg-gradient-to-r from-brand-400 via-brand-300 to-brand-400 opacity-0"
           whileHover={{ opacity: 0.25 }}
           transition={{ duration: 0.3 }}
         />
@@ -437,7 +435,7 @@ function GlowButton({ children, onClick, variant = "primary", className = "", re
 export default function DynamicLandingPage() {
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion() ?? false;
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const { openAuthDrawer } = useAuthDrawer();
   const logoutToHome = useLogout();
   const pageRef = useRef(null);
@@ -446,37 +444,48 @@ export default function DynamicLandingPage() {
   const headerBg = useTransform(scrollYProgress, [0, 0.08], ["rgba(255,255,255,0.72)", "rgba(255,255,255,0.95)"]);
   const heroParallax = useTransform(scrollYProgress, [0, 0.25], [0, reduceMotion ? 0 : 80]);
 
-  const goToApp = useCallback(() => {
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || !user) return;
+    if (user.kyc_status === "verified") return;
+    navigate(KYC_ROUTE, {
+      replace: true,
+      state: { from: ROLE_HOME_ROUTE[user.role] ?? "/home" },
+    });
+  }, [isAuthenticated, isLoading, navigate, user]);
+
+  const continueAfterAuth = useCallback(() => {
     if (!isAuthenticated || !user) return;
-    navigate(ROLE_HOME_ROUTE[user.role]);
+    navigate(getPostAuthRoute(user));
   }, [isAuthenticated, navigate, user]);
 
   const goToLogin = useCallback(() => {
+    if (isAuthenticated && user) {
+      continueAfterAuth();
+      return;
+    }
     openAuthDrawer("login", { from: "/home" });
-  }, [openAuthDrawer]);
+  }, [continueAfterAuth, isAuthenticated, openAuthDrawer, user]);
 
   const goToSignup = useCallback(
     (role) => {
+      if (isAuthenticated && user) {
+        continueAfterAuth();
+        return;
+      }
       openAuthDrawer("signup", {
         from: "/home",
         ...(role ? { defaultRole: role } : {}),
       });
     },
-    [openAuthDrawer]
+    [continueAfterAuth, isAuthenticated, openAuthDrawer, user]
   );
 
-  useEffect(() => {
-    if (isAuthenticated && user?.role === "buyer") {
-      navigate("/home", { replace: true });
-    }
-  }, [isAuthenticated, user, navigate]);
-
   return (
-    <div ref={pageRef} className="min-h-screen bg-[#f7f8fa] text-gray-900 overflow-x-hidden">
+    <div ref={pageRef} className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Scroll progress bar */}
       {!reduceMotion && (
         <motion.div
-          className="fixed top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-brand-500 via-violet-500 to-brand-500 origin-left z-[60]"
+          className="fixed top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-brand-500 via-secondary-500 to-brand-500 origin-left z-[60]"
           style={{ scaleX: scrollYProgress }}
         />
       )}
@@ -488,10 +497,10 @@ export default function DynamicLandingPage() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className="px-4 py-3 max-w-6xl mx-auto flex items-center justify-between gap-3">
+        <div className="px-4 py-3 max-w-6xl mx-auto flex items-center justify-between gap-3 sm:gap-4">
           <motion.button
             onClick={() => navigate("/")}
-            className="flex items-center gap-2.5 hover:opacity-85 transition-opacity"
+            className="flex min-w-0 items-center gap-2.5 hover:opacity-85 transition-opacity"
             whileHover={reduceMotion ? undefined : { scale: 1.02 }}
             whileTap={reduceMotion ? undefined : { scale: 0.98 }}
           >
@@ -499,57 +508,44 @@ export default function DynamicLandingPage() {
               animate={reduceMotion ? undefined : { rotate: [0, -6, 6, 0] }}
               transition={{ duration: 4, repeat: Infinity, repeatDelay: 6 }}
             >
-              <TownExchangeLogo size={36} />
+              <TownExchangeLogo size={40} variant="full" />
             </motion.div>
-            <div className="min-w-0 flex flex-col text-left">
-              <span className="font-display text-base font-semibold leading-tight tracking-wide">
-                {APP_NAME}
-              </span>
-              <span className="flex items-center gap-1 text-xs text-gray-500">
-                <MapPin className="w-3 h-3" />
-                {APP_LOCATION}
-              </span>
-            </div>
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <MapPin className="w-3 h-3" />
+              {APP_LOCATION}
+            </span>
           </motion.button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {isAuthenticated && user ? (
-              <>
-                <GlowButton
-                  reduceMotion={reduceMotion}
-                  onClick={goToApp}
-                  className="hidden sm:inline-flex px-4 py-2 text-white bg-brand-500 hover:bg-brand-700 shadow-soft-sm"
-                >
-                  Go to App
-                </GlowButton>
-                <button
-                  onClick={logoutToHome}
-                  title="Log out"
-                  className="p-2 rounded-control text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </>
+              <motion.button
+                type="button"
+                whileHover={reduceMotion ? undefined : { scale: 1.02 }}
+                whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+                onClick={logoutToHome}
+                className="inline-flex items-center px-3 py-2 rounded-control text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
+              >
+                Log out
+              </motion.button>
             ) : (
-              <>
-                <motion.button
-                  whileHover={reduceMotion ? undefined : { scale: 1.02 }}
-                  whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-                  onClick={goToLogin}
-                  className="hidden sm:inline-flex px-3 py-2 rounded-control text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  Log in
-                </motion.button>
-                <GlowButton
-                  reduceMotion={reduceMotion}
-                  onClick={() => goToSignup()}
-                  variant="outline"
-                  className="px-4 py-2 border-2 border-brand-500 text-brand-600 hover:bg-brand-50"
-                >
-                  Get Started
-                </GlowButton>
-              </>
+              <motion.button
+                type="button"
+                whileHover={reduceMotion ? undefined : { scale: 1.02 }}
+                whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+                onClick={goToLogin}
+                className="inline-flex items-center px-3 py-2 rounded-control text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
+              >
+                Log in
+              </motion.button>
             )}
+            <GlowButton
+              reduceMotion={reduceMotion}
+              onClick={() => goToSignup()}
+              variant="outline"
+              className="px-4 py-2 h-[38px] border-2 border-brand-500 text-brand-600 hover:bg-brand-50 whitespace-nowrap"
+            >
+              Get Started
+            </GlowButton>
           </div>
         </div>
       </motion.header>
@@ -558,8 +554,8 @@ export default function DynamicLandingPage() {
       <section className="relative pt-28 pb-16 md:pt-36 md:pb-20 overflow-hidden min-h-[88dvh] flex flex-col justify-center">
         <DotGrid />
         <FloatingOrb className="w-72 h-72 bg-brand-400/25 top-10 -left-20" scrollYProgress={scrollYProgress} />
-        <FloatingOrb className="w-96 h-96 bg-violet-400/20 top-24 -right-24" delay={1.2} duration={11} scrollYProgress={scrollYProgress} />
-        <FloatingOrb className="w-64 h-64 bg-emerald-400/15 bottom-0 left-1/3" delay={0.6} scrollYProgress={scrollYProgress} />
+        <FloatingOrb className="w-96 h-96 bg-brand-400/20 top-24 -right-24" delay={1.2} duration={11} scrollYProgress={scrollYProgress} />
+        <FloatingOrb className="w-64 h-64 bg-secondary-400/20 bottom-0 left-1/3" delay={0.6} scrollYProgress={scrollYProgress} />
 
         <div className="relative max-w-5xl mx-auto px-4 text-center">
           {HERO_FLOATING_CARDS.map((card) => (
@@ -577,7 +573,7 @@ export default function DynamicLandingPage() {
               >
                 <Sparkles className="w-3.5 h-3.5" />
               </motion.span>
-              Chennai&apos;s No-Brokerage Property Marketplace
+              Your Town&apos;s No-Brokerage Property Marketplace
             </motion.span>
 
             <motion.span
@@ -595,7 +591,7 @@ export default function DynamicLandingPage() {
               variants={fadeUp}
               className="mt-5 text-base md:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed"
             >
-              Town Exchange connects Chennai renters and buyers directly with
+              {APP_NAME} connects {APP_LOCATION} renters and buyers directly with
               property owners — rich photos, transparent pricing, and zero
               middleman fees.
             </motion.p>
@@ -606,10 +602,10 @@ export default function DynamicLandingPage() {
             >
               <GlowButton
                 reduceMotion={reduceMotion}
-                onClick={isAuthenticated ? goToApp : () => goToSignup()}
+                onClick={() => goToSignup()}
                 className="w-full sm:w-auto px-8 py-3.5 text-white bg-brand-500 hover:bg-brand-700 shadow-soft-lg hover:shadow-brand-glow"
               >
-                {isAuthenticated ? "Open Town Exchange" : "Get Started"}
+                Get Started
                 <motion.span
                   animate={reduceMotion ? undefined : { x: [0, 4, 0] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
@@ -620,7 +616,7 @@ export default function DynamicLandingPage() {
               <GlowButton
                 reduceMotion={reduceMotion}
                 variant="outline"
-                onClick={isAuthenticated ? goToApp : () => goToSignup()}
+                onClick={() => goToSignup()}
                 className="w-full sm:w-auto px-8 py-3.5 border-2 border-gray-200 bg-white/80 hover:border-brand-300 hover:bg-white text-gray-800"
               >
                 Create Free Account
@@ -634,7 +630,7 @@ export default function DynamicLandingPage() {
               {[
                 { icon: Percent, label: "Zero Brokerage" },
                 { icon: ShieldCheck, label: "Direct Owner Contact" },
-                { icon: Building2, label: "Chennai Focused" },
+                { icon: Building2, label: "Your Town Focused" },
               ].map((badge, i) => (
                 <motion.span
                   key={badge.label}
@@ -666,8 +662,8 @@ export default function DynamicLandingPage() {
       {/* Why Us */}
       <RevealSection className="max-w-6xl mx-auto px-4 py-16 md:py-20">
         <SectionHeading
-          title="Why Choose Town Exchange"
-          subtitle="A simpler, fairer way to find and list property in Chennai"
+          title={`Why Choose ${APP_NAME}`}
+          subtitle={`A simpler, fairer way to find and list property in ${APP_LOCATION}`}
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -684,7 +680,7 @@ export default function DynamicLandingPage() {
               >
                 <item.icon className="w-6 h-6" />
               </motion.span>
-              <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+              <p className="text-sm font-semibold text-foreground">{item.title}</p>
               <p className="mt-2 text-xs text-gray-600 leading-relaxed">{item.description}</p>
             </TiltCard>
           ))}
@@ -727,7 +723,7 @@ export default function DynamicLandingPage() {
               {!reduceMotion && (
                 <div className="hidden lg:block absolute top-8 left-[12%] right-[12%] h-0.5 bg-white/20 overflow-hidden rounded-full">
                   <motion.div
-                    className="h-full bg-gradient-to-r from-brand-300 to-violet-300"
+                    className="h-full bg-gradient-to-r from-brand-300 to-brand-200"
                     initial={{ width: "0%" }}
                     whileInView={{ width: "100%" }}
                     viewport={{ once: true }}
@@ -751,7 +747,7 @@ export default function DynamicLandingPage() {
                   >
                     {item.step}
                   </motion.span>
-                  <p className="mt-2 font-semibold text-gray-900">{item.title}</p>
+                  <p className="mt-2 font-semibold text-foreground">{item.title}</p>
                   <p className="mt-1.5 text-xs text-gray-500 leading-relaxed">{item.description}</p>
                 </motion.div>
               ))}
@@ -763,8 +759,8 @@ export default function DynamicLandingPage() {
       {/* Audiences */}
       <RevealSection className="max-w-6xl mx-auto px-4 py-16 md:py-20">
         <SectionHeading
-          title="Built for Everyone in Chennai"
-          subtitle="Whether you're searching or listing, Town Exchange has you covered"
+          title={`Built for Everyone in ${APP_LOCATION}`}
+          subtitle={`Whether you're searching or listing, ${APP_NAME} has you covered`}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -794,7 +790,7 @@ export default function DynamicLandingPage() {
                 >
                   <audience.icon className="w-7 h-7" />
                 </motion.span>
-                <h3 className="text-lg font-semibold text-gray-900">{audience.title}</h3>
+                <h3 className="text-lg font-semibold text-foreground">{audience.title}</h3>
                 <ul className="mt-4 space-y-2.5">
                   {audience.points.map((point, pi) => (
                     <motion.li
@@ -805,17 +801,17 @@ export default function DynamicLandingPage() {
                       transition={{ delay: pi * 0.08 }}
                       className="flex items-start gap-2 text-sm text-gray-600"
                     >
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-accent-yellow-text mt-0.5 flex-shrink-0" />
                       {point}
                     </motion.li>
                   ))}
                 </ul>
                 <GlowButton
                   reduceMotion={reduceMotion}
-                  onClick={() => (isAuthenticated ? goToApp() : goToSignup(audience.role))}
+                  onClick={() => goToSignup(audience.role)}
                   className="mt-6 px-5 py-2.5 text-white bg-brand-500 hover:bg-brand-700 shadow-soft-sm"
                 >
-                  {isAuthenticated ? "Go to App" : audience.cta}
+                  {audience.cta}
                 </GlowButton>
               </div>
             </motion.div>
@@ -828,7 +824,7 @@ export default function DynamicLandingPage() {
         <motion.div variants={fadeScale} className="relative p-[2px] rounded-[1.5rem] overflow-hidden">
           {!reduceMotion && (
             <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-brand-500 via-violet-500 to-brand-500 bg-[length:200%_100%]"
+              className="absolute inset-0 bg-gradient-to-r from-brand-500 via-secondary-500 to-brand-500 bg-[length:200%_100%]"
               animate={{ backgroundPosition: ["0% 50%", "200% 50%"] }}
               transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
             />
@@ -840,11 +836,11 @@ export default function DynamicLandingPage() {
               transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
               className="relative"
             >
-              <h2 className="font-display text-2xl md:text-4xl font-semibold text-gray-900">
+              <h2 className="font-display text-2xl md:text-4xl font-semibold text-foreground">
                 Ready to get started?
               </h2>
               <p className="mt-3 text-sm md:text-base text-gray-500 max-w-lg mx-auto">
-                Join Town Exchange today. Listings, favourites, property stories,
+                Join {APP_NAME} today. Listings, favourites, property stories,
                 and owner dashboards — all available after you log in.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -879,15 +875,14 @@ export default function DynamicLandingPage() {
         <div className="max-w-6xl mx-auto px-4 py-10">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
-              <TownExchangeLogo size={32} />
-              <span className="font-display text-sm font-semibold text-gray-800">{APP_NAME}</span>
+              <TownExchangeLogo size={36} variant="full" />
             </div>
             <FooterLinks />
           </div>
           <div className="mt-6 pt-6 border-t border-gray-200 flex items-center justify-center gap-1.5 text-xs text-gray-500">
             <Users2 className="w-3.5 h-3.5" />
             <span>
-              &copy; {new Date().getFullYear()} {APP_NAME}. Built for Chennai, by Chennai.
+              &copy; {new Date().getFullYear()} {APP_NAME}. Built for {APP_LOCATION}, by {APP_LOCATION}.
             </span>
           </div>
         </div>

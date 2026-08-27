@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // API Base URL - can be configured via environment variable
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8005';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8024';
 
 /**
  * Configuration API Service

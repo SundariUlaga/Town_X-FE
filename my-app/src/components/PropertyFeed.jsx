@@ -1,19 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, MapPin, Bed, Bath, Square, Heart, Phone, RotateCcw, SlidersHorizontal, ChevronRight, ChevronLeft, Home, X } from 'lucide-react';
+import { MapPin, Bed, Bath, Square, Heart, Phone, RotateCcw, SlidersHorizontal, ChevronRight, ChevronLeft, Home, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
-import { propertyAPI } from '../services/api';
+import { propertyAPI, activityAPI } from '../services/api';
+import { useLocationContext } from '../context/LocationContext';
+import { buildPropertySearchQuery, getLocationCityFilter } from '@/lib/buildPropertySearchQuery';
+import { criteriaFromFeedSearch, syncSearchAlert } from '@/lib/searchAlerts';
+import { useAuth } from '@/context/AuthContext';
 import { PropertyCard } from './PropertyCard';
 import { getApiErrorMessage } from '@/lib/apiErrors';
 import LoadErrorState from "@/components/shared/LoadErrorState";
+import ContextualEmptyState from "@/components/shared/ContextualEmptyState";
+import { LocationPicker } from "@/components/shared/LocationPicker";
+import { PropertyCardSkeletonGrid, PropertyCardSkeleton } from "@/components/shared/PropertyCardSkeleton";
 import TownLoader from "@/components/shared/TownLoader";
 import { MobileSwipeDeck } from '@/components/property/MobileSwipeDeck';
 
-import { TownExchangeBrand, TownExchangeLogo } from './brand/TownExchangeLogo';
+import AppNavbar from "@/components/shared/AppNavbar";
+
+import { TownExchangeLogo } from './brand/TownExchangeLogo';
 
 export default function PropertyFeed() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { selectedLocation, locationLabel } = useLocationContext();
   const [category, setCategory] = useState('All Properties');
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +85,7 @@ export default function PropertyFeed() {
 
   useEffect(() => {
     fetchProperties();
-  }, [category, sortBy, filters]);
+  }, [category, sortBy, filters, selectedLocation?.id]);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -97,6 +108,8 @@ export default function PropertyFeed() {
       if (filters.propertyFor) params.property_for = filters.propertyFor;
       if (filters.propertyType) params.property_type = filters.propertyType;
       if (filters.furnishing) params.furnishing_status = filters.furnishing;
+      const cityFilter = getLocationCityFilter(selectedLocation);
+      if (cityFilter) params.city = cityFilter;
 
       const data = await propertyAPI.getProperties(params);
 
@@ -138,10 +151,36 @@ export default function PropertyFeed() {
     setError(null);
     setErrorCause(null);
     try {
-      const results = await propertyAPI.searchProperties(query);
+      const results = await propertyAPI.searchProperties(
+        buildPropertySearchQuery(selectedLocation, query)
+      );
       setProperties(results);
       setCurrentIndex(results.length - 1);
       setSwipedCards([]);
+      if (user?.kyc_status === "verified") {
+        activityAPI
+          .trackSearch({
+            search_query: query,
+            location_text: selectedLocation?.name || undefined,
+            property_type: filters.propertyType || undefined,
+            transaction_type: filters.propertyFor || undefined,
+          })
+          .catch(() => {});
+        syncSearchAlert(
+          criteriaFromFeedSearch({
+            query,
+            city: getLocationCityFilter(selectedLocation),
+            propertyFor: filters.propertyFor || undefined,
+            propertyType: filters.propertyType || undefined,
+            bhkType: filters.bhkType || undefined,
+            minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
+            maxPrice: filters.maxPrice ? Number(filters.maxPrice) : undefined,
+            category: category !== "All Properties" ? category : undefined,
+            furnishingStatus: filters.furnishing || undefined,
+          }),
+          query
+        );
+      }
     } catch (err) {
       setError(getApiErrorMessage(err, 'Search failed. Please try again.'));
       setErrorCause(err);
@@ -149,6 +188,10 @@ export default function PropertyFeed() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLocationPick = (location) => {
+    handleSearch({ preventDefault: () => {} }, location.name);
   };
 
   const handleSaveProperty = async (propertyId, e) => {
@@ -384,37 +427,13 @@ export default function PropertyFeed() {
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
-      {/* Professional Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-soft-sm safe-top">
-        <div className="px-3 sm:px-4 py-2.5 sm:py-3 max-w-7xl mx-auto">
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-              {/* Mobile Back Button */}
-              <button
-                onClick={() => navigate(-1)}
-                className="md:hidden p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronLeft size={24} className="text-gray-700" />
-              </button>
-
-              <TownExchangeBrand
-                asButton
-                logoSize={36}
-                showTagline
-                tagline="Property Marketplace"
-                onClick={() => navigate('/')}
-                className="min-w-0 max-w-[min(100%,14rem)] sm:max-w-none"
-              />
-            </div>
-
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="hidden sm:inline text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg font-medium">
-                {loading ? 'Loading...' : `${properties.length} Properties`}
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppNavbar
+        variant="inner"
+        backTo="/home"
+        maxWidth="7xl"
+        logoTagline="Property Marketplace"
+        showLocation
+      />
 
       {/* Breadcrumbs - Desktop Only */}
       <div className="hidden md:block bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
@@ -434,23 +453,21 @@ export default function PropertyFeed() {
       </div>
 
       {/* Combined Search and Filter Section */}
-      <div className="bg-white border-b border-gray-200 sticky top-[52px] sm:top-[60px] md:top-[85px] z-40 shadow-soft-sm">
+      <div className="bg-white border-b border-gray-200 sticky top-[48px] sm:top-[52px] md:top-[85px] z-40 shadow-soft-sm">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
           {/* Search and Filter Row */}
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-3">
             {/* Search Bar */}
-            <form onSubmit={handleSearch} className="flex-1 min-w-0 w-full">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  placeholder="Search location, type, keyword..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-control focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
-                />
-              </div>
-            </form>
+            <LocationPicker
+              mode="freetext"
+              value={searchQuery}
+              onChange={setSearchQuery}
+              onSubmit={() => handleSearch({ preventDefault: () => {} })}
+              onSelectLocation={handleLocationPick}
+              placeholder="Search location, type, keyword..."
+              recentScope="property-feed"
+              className="flex-1 min-w-0 w-full"
+            />
 
             {/* Filter Button */}
             <button
@@ -513,7 +530,13 @@ export default function PropertyFeed() {
       {/* Properties Content */}
       <div className="max-w-7xl mx-auto px-4 py-6 pb-24">
         {loading ? (
-          <TownLoader size="lg" label="Finding properties" minHeight="55vh" />
+          isMobile ? (
+            <div className="flex justify-center py-6">
+              <PropertyCardSkeleton compact className="w-full max-w-md" />
+            </div>
+          ) : (
+            <PropertyCardSkeletonGrid count={8} />
+          )
         ) : error ? (
           <LoadErrorState
             title="Couldn't load properties"
@@ -522,10 +545,16 @@ export default function PropertyFeed() {
             onRetry={fetchProperties}
           />
         ) : properties.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-gray-600 text-base font-medium">No properties found</p>
-            <p className="text-gray-500 text-sm mt-2">Try adjusting your filters or search criteria</p>
-          </div>
+          <ContextualEmptyState
+            title={`No properties in ${locationLabel} yet`}
+            description="Try widening your search, clearing filters, or picking a nearby district."
+            actionLabel="Clear filters & search"
+            onAction={() => {
+              setSearchQuery('');
+              clearFilters();
+              fetchProperties();
+            }}
+          />
         ) : isMobile ? (
           <div className="relative">
             {currentIndex < 0 ? (
@@ -540,7 +569,7 @@ export default function PropertyFeed() {
                     transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
                     className="w-20 h-20 mx-auto mb-4 bg-brand-50 rounded-full flex items-center justify-center"
                   >
-                    <TownExchangeLogo size={48} />
+                    <TownExchangeLogo size={56} variant="full" />
                   </motion.div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
                     No More Properties
@@ -645,7 +674,7 @@ export default function PropertyFeed() {
               <PropertyCard
                 key={property.id}
                 property={property}
-                onOpenDetails={(id) => navigate(`/property/${id}`)}
+                onOpenDetails={(id) => navigate(`/property/${id}`, { state: { from: '/property-feed' } })}
                 onFavouriteChange={(id, isFav) =>
                   setProperties((prev) =>
                     prev.map((p) => (p.id === id ? { ...p, is_favourite: isFav } : p))

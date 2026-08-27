@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
-import { TownExchangeLogo, APP_NAME } from "@/components/brand/TownExchangeLogo";
+import { TownExchangeLogo } from "@/components/brand/TownExchangeLogo";
 
 export function AuthLayout({
   title,
@@ -16,9 +16,8 @@ export function AuthLayout({
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
-        <Link to="/" className="mb-6 flex items-center justify-center gap-2.5">
-          <TownExchangeLogo size={40} />
-          <span className="font-display text-lg font-semibold text-foreground">{APP_NAME}</span>
+        <Link to="/" className="mb-6 flex items-center justify-center">
+          <TownExchangeLogo size={88} variant="full" className="rounded-xl shadow-soft-md" />
         </Link>
 
         <div className="rounded-card border border-border bg-card p-6 shadow-soft-lg">
