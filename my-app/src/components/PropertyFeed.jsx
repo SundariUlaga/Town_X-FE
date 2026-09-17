@@ -544,7 +544,7 @@ export default function PropertyFeed() {
                   <span className="text-xs">{property.bathrooms}</span>
                 </div>
               )}
-              {property.carpet_area && property.carpet_area > 0 && (
+              {Number(property.carpet_area) > 0 && (
                 <div className="flex items-center gap-1">
                   <Square size={14} className="text-gray-400" />
                   <span className="text-xs">{property.carpet_area} sqft</span>

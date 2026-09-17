@@ -511,13 +511,13 @@ export default function PropertyDetails() {
 
               {property.property_for === 'Rent/Lease' && (
                 <div className="flex flex-wrap gap-4 text-sm md:text-base mb-3">
-                  {property.security_deposit && property.security_deposit > 0 && (
+                  {Number(property.security_deposit) > 0 && (
                     <div>
                       <span className="text-gray-600">Security: </span>
                       <span className="font-semibold text-gray-800">{formatPrice(property.security_deposit)}</span>
                     </div>
                   )}
-                  {property.maintenance_charges && property.maintenance_charges > 0 && (
+                  {Number(property.maintenance_charges) > 0 && (
                     <div>
                       <span className="text-gray-600">Maintenance: </span>
                       <span className="font-semibold text-gray-800">{formatPrice(property.maintenance_charges)}/mo</span>
@@ -617,7 +617,7 @@ export default function PropertyDetails() {
                     </p>
                   </div>
                 )}
-                {property.carpet_area && property.carpet_area > 0 && (
+                {Number(property.carpet_area) > 0 && (
                   <div className={overviewTileClass}>
                     <Square className="mx-auto mb-2 text-brand-600" size={28} />
                     <p className="text-xs text-gray-600 mb-1">{isCommercial ? "Area" : "Carpet Area"}</p>
