@@ -79,6 +79,7 @@ export default function SubmitAdvertisementPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {submitting ? <TownLoader overlay label="Submitting advertisement" /> : null}
       <AppNavbar variant="inner" backTo={backTo} logoTagline="Advertise" />
 
       <main className="mx-auto max-w-2xl px-3 sm:px-4 py-5 sm:py-6 pb-16 safe-bottom">
@@ -191,7 +192,6 @@ export default function SubmitAdvertisementPage() {
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? <TownLoader size="xs" /> : null}
             Submit for review
           </Button>
         </form>

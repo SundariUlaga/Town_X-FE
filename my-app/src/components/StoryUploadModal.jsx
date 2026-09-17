@@ -290,14 +290,7 @@ export default function StoryUploadModal({ isOpen, onClose, onSuccess }) {
                     disabled={uploading}
                     className="w-full py-3 md:py-3.5 px-4 bg-gradient-to-r from-brand-500 to-brand-700 text-white rounded-card text-sm md:text-base font-semibold hover:from-brand-600 hover:to-brand-800 transition-all shadow-soft-md disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {uploading ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <TownLoader size="xs" />
-                        Uploading...
-                      </div>
-                    ) : (
-                      "Share to Story"
-                    )}
+                    Share to Story
                   </motion.button>
 
                   <div className="bg-blue-50 border border-blue-200 rounded-control p-2.5">
@@ -309,6 +302,7 @@ export default function StoryUploadModal({ isOpen, onClose, onSuccess }) {
               )}
             </div>
           </motion.div>
+          {uploading ? <TownLoader overlay label="Uploading your story" /> : null}
         </motion.div>
       )}
     </AnimatePresence>

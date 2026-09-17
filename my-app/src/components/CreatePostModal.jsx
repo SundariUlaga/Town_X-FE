@@ -1322,20 +1322,14 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
                   disabled={uploading}
                   className="flex-1 px-4 py-2.5 text-white rounded-control font-semibold transition-colors text-sm disabled:opacity-50 flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-700"
                 >
-                  {uploading ? (
-                    <>
-                      <TownLoader size="xs" className="[&_span]:bg-white [&_.rounded-full]:border-white/50" />
-                      Uploading...
-                    </>
-                  ) : currentStep === 4 ? (
-                    "Submit Property"
-                  ) : (
-                    "Continue"
-                  )}
+                  {currentStep === 4 ? "Submit Property" : "Continue"}
                 </button>
               </div>
             </div>
           </motion.div>
+          {uploading ? (
+            <TownLoader overlay label="Uploading your property" />
+          ) : null}
         </motion.div>
       )}
     </AnimatePresence>

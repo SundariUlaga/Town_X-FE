@@ -1,16 +1,26 @@
+import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "motion/react";
 
 import { TownExchangeLogo } from "@/components/brand/TownExchangeLogo";
 import { cn } from "@/lib/utils";
 
-const SIZE_PX = {
-  xs: 28,
-  sm: 40,
-  md: 64,
-  lg: 88,
+const DOT_PX = {
+  xs: 7,
+  sm: 9,
+  md: 12,
+  lg: 14,
 } as const;
 
-export type TownLoaderSize = keyof typeof SIZE_PX;
+const DOT_GAP = {
+  xs: 5,
+  sm: 7,
+  md: 9,
+  lg: 11,
+} as const;
+
+const DOT_COLORS = ["bg-brand-500", "bg-secondary-500", "bg-brand-400"] as const;
+
+export type TownLoaderSize = keyof typeof DOT_PX;
 
 type TownLoaderProps = {
   size?: TownLoaderSize;
@@ -20,128 +30,86 @@ type TownLoaderProps = {
   fullScreen?: boolean;
   /** Minimum height wrapper for section loads; omit for inline use */
   minHeight?: string;
+  /** Blocks the whole screen (use for uploads / submits) */
+  overlay?: boolean;
 };
 
-const SKYLINE = [0.35, 0.55, 0.8, 0.45, 0.95, 0.6, 0.75, 0.4, 0.7];
+function PoppingDots({ size }: { size: TownLoaderSize }) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const px = DOT_PX[size];
+  const lift = Math.round(px * 1.45);
 
-/** Creative branded loader — orbiting rings + living skyline around the TOWN-X mark. */
+  return (
+    <div className="flex items-end" style={{ gap: DOT_GAP[size] }} aria-hidden>
+      {DOT_COLORS.map((color, index) => (
+        <motion.span
+          key={color}
+          className={cn("rounded-full shadow-soft-sm", color)}
+          style={{ width: px, height: px }}
+          animate={
+            reduceMotion
+              ? undefined
+              : {
+                  y: [0, -lift, 0],
+                  scale: [0.85, 1.28, 0.85],
+                  opacity: [0.55, 1, 0.55],
+                }
+          }
+          transition={{
+            duration: 0.52,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: index * 0.14,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Branded loader — popping dots, with an optional full-screen overlay. */
 export function TownLoader({
   size = "md",
   label,
   className,
   fullScreen = false,
   minHeight,
+  overlay = false,
 }: TownLoaderProps) {
-  const reduceMotion = useReducedMotion() ?? false;
-  const px = SIZE_PX[size];
-  const showLabel = Boolean(label) && size !== "xs";
-  const showSkyline = size === "md" || size === "lg";
-  const orbitPad = showSkyline ? Math.round(px * 0.22) : Math.round(px * 0.12);
+  const showLabel = Boolean(label) && (overlay || size !== "xs");
+  const showMark = overlay || size === "md" || size === "lg";
+  const dotsSize: TownLoaderSize = overlay ? "lg" : size;
+  const markSize = overlay || size === "lg" ? 40 : 32;
 
   const loader = (
     <div
       className={cn("relative inline-flex flex-col items-center justify-center gap-3", className)}
       role="status"
       aria-live="polite"
+      aria-busy="true"
       aria-label={label ?? "Loading"}
     >
-      <div
-        className="relative"
-        style={{ width: px + orbitPad * 2, height: px + orbitPad * 2 }}
-      >
-        {/* Soft ambient glow */}
-        <motion.div
-          className="absolute inset-[12%] rounded-full bg-brand-500/20 blur-xl"
-          animate={reduceMotion ? undefined : { scale: [1, 1.2, 1], opacity: [0.35, 0.7, 0.35] }}
-          transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-        />
-
-        {/* Outer dashed orbit */}
-        <motion.div
-          className="absolute inset-0 rounded-full border border-dashed border-brand-400/45"
-          animate={reduceMotion ? undefined : { rotate: 360 }}
-          transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
-        />
-
-        {/* Inner counter-orbit */}
-        <motion.div
-          className="absolute inset-[10%] rounded-full border border-brand-300/35"
-          animate={reduceMotion ? undefined : { rotate: -360 }}
-          transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-        />
-
-        {/* Orbiting pin dots */}
-        {!reduceMotion &&
-          [0, 120, 240].map((deg) => (
-            <motion.span
-              key={deg}
-              className="absolute left-1/2 top-1/2 size-1.5 -ml-0.5 -mt-0.5 rounded-full bg-brand-500 shadow-soft-sm"
-              style={{ transformOrigin: `0 ${px / 2 + orbitPad * 0.55}px` }}
-              animate={{ rotate: [deg, deg + 360] }}
-              transition={{ duration: 3.6, repeat: Infinity, ease: "linear" }}
-            />
-          ))}
-
-        {/* Living skyline under the mark */}
-        {showSkyline ? (
-          <div
-            className="absolute bottom-[14%] left-1/2 flex -translate-x-1/2 items-end gap-0.5"
-            aria-hidden
-          >
-            {SKYLINE.map((h, i) => (
-              <motion.span
-                key={i}
-                className="w-1 rounded-t-sm bg-gradient-to-t from-brand-600 to-brand-300"
-                style={{ height: Math.max(6, Math.round(px * 0.22 * h)) }}
-                animate={
-                  reduceMotion
-                    ? undefined
-                    : {
-                        scaleY: [0.55, 1, 0.7, 1],
-                        opacity: [0.55, 1, 0.75, 1],
-                      }
-                }
-                transition={{
-                  duration: 1.35,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: i * 0.08,
-                }}
-              />
-            ))}
-          </div>
-        ) : null}
-
-        {/* Brand mark */}
-        <motion.div
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ paddingBottom: showSkyline ? px * 0.12 : 0 }}
-          animate={reduceMotion ? undefined : { scale: [0.96, 1.04, 0.96] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <TownExchangeLogo size={Math.round(px * (showSkyline ? 0.58 : 0.72))} variant="mark" />
-        </motion.div>
-      </div>
-
-      {showLabel && (
-        <motion.p
-          className="max-w-[16rem] text-center text-xs font-medium tracking-wide text-muted-foreground sm:text-sm"
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12 }}
-        >
+      {showMark ? <TownExchangeLogo size={markSize} variant="mark" className="rounded-lg" /> : null}
+      <PoppingDots size={dotsSize} />
+      {showLabel ? (
+        <p className="max-w-[16rem] text-center text-xs font-medium tracking-wide text-muted-foreground sm:text-sm">
           {label}
-          <motion.span
-            className="inline-block"
-            animate={reduceMotion ? undefined : { opacity: [0.15, 1, 0.15] }}
-            transition={{ duration: 1.3, repeat: Infinity }}
-          >
-            …
-          </motion.span>
-        </motion.p>
-      )}
+        </p>
+      ) : null}
     </div>
   );
+
+  if (overlay) {
+    const node = (
+      <div className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/45 px-4 backdrop-blur-[2px]">
+        <div className="flex min-w-[12rem] flex-col items-center rounded-card bg-white px-8 py-7 shadow-soft-lg">
+          {loader}
+        </div>
+      </div>
+    );
+    if (typeof document === "undefined") return node;
+    return createPortal(node, document.body);
+  }
 
   if (fullScreen) {
     return (
