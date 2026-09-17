@@ -7,7 +7,8 @@ import {
   Share2, BadgeCheck, Maximize2, Images
 } from 'lucide-react';
 import { propertyAPI, enquiryAPI, reportAPI } from '../services/api';
-import { useAuth, ROLE_HOME_ROUTE } from '@/context/AuthContext';
+import { useAuth, ROLE_HOME_ROUTE, KYC_ROUTE } from '@/context/AuthContext';
+import { useAuthDrawer } from '@/context/AuthDrawerContext';
 import PropertyDetailsSkeleton from "@/components/shared/PropertyDetailsSkeleton";
 import { recordRecentlyViewed } from "@/lib/recentlyViewed";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
@@ -25,6 +26,9 @@ import { SimilarPropertiesRail } from "@/components/property/SimilarPropertiesRa
 import { AmenityIconGrid } from "@/components/property/AmenityIconGrid";
 import { Dropdown } from "@/components/ui/dropdown";
 
+const DEFAULT_ENQUIRY_MESSAGE =
+  "Hi, I'm interested in this property. Please share more details.";
+
 const REPORT_REASONS = [
   { value: "Misleading listing", label: "Misleading listing" },
   { value: "Duplicate listing", label: "Duplicate listing" },
@@ -39,6 +43,7 @@ export default function PropertyDetails() {
   const location = useLocation();
   const backTo = location.state?.from || '/home';
   const { user } = useAuth();
+  const { openAuthDrawer } = useAuthDrawer();
   const { toast } = useToast();
   const homeRoute = user ? ROLE_HOME_ROUTE[user.role] : '/home';
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -119,29 +124,46 @@ export default function PropertyDetails() {
     }
   };
 
-  const canEnquire = user?.kyc_status === 'verified' && property?.status === 'PUBLISHED';
+  const isOwnListing = Boolean(user && property?.owner_id && property.owner_id === user.id);
+  const listingLive =
+    !property?.status || String(property.status).toUpperCase() === 'PUBLISHED';
+  const isKycVerified = user?.kyc_status === 'verified';
+
+  const ensureCanEnquire = () => {
+    if (!user) {
+      openAuthDrawer('login', { from: `/property/${id}` });
+      return false;
+    }
+    if (!isKycVerified) {
+      navigate(KYC_ROUTE, { state: { from: `/property/${id}` } });
+      return false;
+    }
+    if (isOwnListing) {
+      setEnquiryError('You cannot enquire on your own listing.');
+      return false;
+    }
+    if (!listingLive) {
+      setEnquiryError('This listing is not available for enquiries yet.');
+      return false;
+    }
+    return true;
+  };
 
   const handleSubmitEnquiry = async () => {
-    if (!canEnquire) {
-      navigate('/login', { state: { from: `/property/${id}` } });
-      return;
-    }
-    if (enquiryMessage.trim().length < 5) {
-      setEnquiryError('Please enter a message of at least 5 characters.');
-      setShowMobileEnquiry(true);
-      return;
-    }
+    if (!ensureCanEnquire()) return;
+    const message = enquiryMessage.trim() || DEFAULT_ENQUIRY_MESSAGE;
     setEnquirySubmitting(true);
     setEnquiryError(null);
     try {
       await enquiryAPI.create({
         property_id: Number(id),
-        message: enquiryMessage.trim(),
+        message,
         contact_method: 'phone',
       });
       setEnquirySuccess(true);
       setEnquiryMessage('');
       setShowMobileEnquiry(false);
+      toast('Enquiry sent to the owner', 'success');
     } catch (err) {
       setEnquiryError(getApiErrorMessage(err, 'Could not send enquiry. Please try again.'));
       setShowMobileEnquiry(true);
@@ -152,7 +174,11 @@ export default function PropertyDetails() {
 
   const handleSubmitReport = async () => {
     if (user?.kyc_status !== 'verified') {
-      navigate('/login', { state: { from: `/property/${id}` } });
+      if (!user) {
+        openAuthDrawer('login', { from: `/property/${id}` });
+        return;
+      }
+      navigate(KYC_ROUTE, { state: { from: `/property/${id}` } });
       return;
     }
     setReportSubmitting(true);
@@ -219,11 +245,8 @@ export default function PropertyDetails() {
   };
 
   const openMobileEnquiry = (preset) => {
-    if (!canEnquire) {
-      navigate('/login', { state: { from: `/property/${id}` } });
-      return;
-    }
-    if (preset) setEnquiryMessage(preset);
+    if (!ensureCanEnquire()) return;
+    setEnquiryMessage(preset || enquiryMessage || DEFAULT_ENQUIRY_MESSAGE);
     setEnquiryError(null);
     setShowMobileEnquiry(true);
   };
@@ -840,11 +863,14 @@ export default function PropertyDetails() {
                 <div className="bg-brand-50 p-4 rounded-control border border-brand-200">
                   <p className="text-xs text-brand-800 mb-1 font-medium">Send an enquiry</p>
                   <p className="text-sm text-brand-700">
-                    {canEnquire
-                      ? 'The owner will be notified of your interest.'
-                      : user
-                        ? 'Complete KYC verification to contact owners.'
-                        : 'Sign in and verify your account to send an enquiry.'}
+                  <p className="text-sm text-brand-700">
+                    {isOwnListing
+                      ? 'This is your listing — buyers will send enquiries here.'
+                      : isKycVerified
+                        ? 'The owner will be notified of your interest.'
+                        : user
+                          ? 'Complete KYC verification to contact owners.'
+                          : 'Sign in and verify your account to send an enquiry.'}
                   </p>
                 </div>
 
@@ -852,8 +878,8 @@ export default function PropertyDetails() {
                   value={enquiryMessage}
                   onChange={(e) => setEnquiryMessage(e.target.value)}
                   rows={3}
-                  placeholder="Hi, I'm interested in this property. Please share more details..."
-                  disabled={!canEnquire || enquirySubmitting}
+                  placeholder={DEFAULT_ENQUIRY_MESSAGE}
+                  disabled={enquirySubmitting || isOwnListing}
                   className="w-full rounded-control border border-gray-200 px-3 py-2 text-sm outline-none focus:border-brand-500 disabled:bg-gray-50"
                 />
                 {enquiryError ? <p className="text-xs text-red-600">{enquiryError}</p> : null}
@@ -871,7 +897,7 @@ export default function PropertyDetails() {
                 ) : null}
                 <button
                   onClick={handleSubmitEnquiry}
-                  disabled={!canEnquire || enquirySubmitting}
+                  disabled={enquirySubmitting || isOwnListing}
                   className="w-full py-3 px-4 rounded-control text-white font-semibold text-sm transition-all hover:scale-[1.02] flex items-center justify-center gap-2 shadow-soft-md hover:shadow-brand-glow bg-brand-500 hover:bg-brand-700 disabled:opacity-60 disabled:hover:scale-100"
                 >
                   <Mail size={18} />
@@ -908,8 +934,8 @@ export default function PropertyDetails() {
               value={enquiryMessage}
               onChange={(e) => setEnquiryMessage(e.target.value)}
               rows={3}
-              placeholder="Hi, I'm interested in this property. Please share more details..."
-              disabled={!canEnquire || enquirySubmitting}
+              placeholder={DEFAULT_ENQUIRY_MESSAGE}
+              disabled={enquirySubmitting || isOwnListing}
               className="w-full rounded-control border border-gray-200 px-3 py-2 text-sm outline-none focus:border-brand-500 disabled:bg-gray-50"
               aria-label="Enquiry message"
             />
@@ -925,7 +951,7 @@ export default function PropertyDetails() {
               <button
                 type="button"
                 onClick={handleSubmitEnquiry}
-                disabled={!canEnquire || enquirySubmitting}
+                disabled={enquirySubmitting || isOwnListing}
                 className="flex-1 py-3 px-4 rounded-control text-white font-semibold text-sm flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-700 disabled:opacity-60"
               >
                 <Mail size={18} />

@@ -27,6 +27,7 @@ export interface ProjectDetails {
 
 export interface Property {
   id: number;
+  owner_id?: number | null;
   property_for: string;
   property_type: string;
   user_type: string;

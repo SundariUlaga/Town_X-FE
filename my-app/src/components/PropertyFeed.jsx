@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MapPin, Bed, Bath, Square, Heart, Phone, RotateCcw, SlidersHorizontal, ChevronRight, ChevronLeft, Home, X, LayoutGrid, Map } from 'lucide-react';
-import { motion, useReducedMotion } from 'motion/react';
+import { SlidersHorizontal, ChevronRight, Home, X, LayoutGrid, Map } from 'lucide-react';
 import { propertyAPI, activityAPI } from '../services/api';
 import { useLocationContext } from '../context/LocationContext';
 import { buildPropertySearchQuery, getLocationFilterParams, getLocationCityFilter } from '@/lib/buildPropertySearchQuery';
@@ -9,21 +8,16 @@ import { LocationCascadeFilter } from '@/components/shared/LocationCascadeFilter
 import { criteriaFromFeedSearch, syncSearchAlert } from '@/lib/searchAlerts';
 import { useAuth, ROLE_HOME_ROUTE } from '@/context/AuthContext';
 import { PropertyCard } from './PropertyCard';
-import { PropertyCardGallery } from '@/components/property/PropertyCardGallery';
 import { getApiErrorMessage } from '@/lib/apiErrors';
 import LoadErrorState from "@/components/shared/LoadErrorState";
 import ContextualEmptyState from "@/components/shared/ContextualEmptyState";
 import { LocationPicker } from "@/components/shared/LocationPicker";
-import { PropertyCardSkeletonGrid, PropertyCardSkeleton } from "@/components/shared/PropertyCardSkeleton";
-import TownLoader from "@/components/shared/TownLoader";
-import { MobileSwipeDeck } from '@/components/property/MobileSwipeDeck';
+import { PropertyCardSkeletonGrid } from "@/components/shared/PropertyCardSkeleton";
 import { PropertyMapView } from '@/components/property/PropertyMapView';
 
 import AppNavbar from "@/components/shared/AppNavbar";
 
-import { TownExchangeLogo } from './brand/TownExchangeLogo';
 import { WithTooltip } from "@/components/ui/WithTooltip";
-import { useToast } from "@/components/ui/toast";
 import { useCompare } from "@/context/CompareContext";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Pagination } from "@/components/ui/pagination";
@@ -41,7 +35,6 @@ export default function PropertyFeed() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { toast } = useToast();
   const { toggle: toggleCompare, isComparing } = useCompare();
   const homeRoute = user ? ROLE_HOME_ROUTE[user.role] : "/home";
   const { selectedLocation, locationLabel, setSelectedLocation } = useLocationContext();
@@ -52,15 +45,7 @@ export default function PropertyFeed() {
   const [errorCause, setErrorCause] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
-  const [swipedCards, setSwipedCards] = useState([]);
-  const [restoreDirection, setRestoreDirection] = useState(null);
-  const [showComingSoon, setShowComingSoon] = useState(false);
-
-  const currentIndexRef = useRef(currentIndex);
-  const swipeDeckRef = useRef(null);
-  const reduceMotion = useReducedMotion() ?? false;
 
   const [sortBy, setSortBy] = useState('recent');
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'map'
@@ -176,10 +161,6 @@ export default function PropertyFeed() {
     fetchProperties();
   }, [category, sortBy, filters, selectedLocation?.id]);
 
-  useEffect(() => {
-    currentIndexRef.current = currentIndex;
-  }, [currentIndex]);
-
   const fetchProperties = async () => {
     setLoading(true);
     setError(null);
@@ -238,8 +219,6 @@ export default function PropertyFeed() {
       }
 
       setProperties(filteredData);
-      setCurrentIndex(filteredData.length - 1);
-      setSwipedCards([]);
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not load properties. Please try again.'));
       setErrorCause(err);
@@ -265,8 +244,6 @@ export default function PropertyFeed() {
         buildPropertySearchQuery(selectedLocation, query)
       );
       setProperties(results);
-      setCurrentIndex(results.length - 1);
-      setSwipedCards([]);
       if (user?.kyc_status === "verified") {
         activityAPI
           .trackSearch({
@@ -303,245 +280,6 @@ export default function PropertyFeed() {
   const handleLocationPick = (location) => {
     handleSearch({ preventDefault: () => {} }, location.name);
   };
-
-  const handleSaveProperty = async (propertyId, e) => {
-    if (e) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-
-    try {
-      const result = await propertyAPI.toggleFavourite(propertyId);
-      setProperties(prevProperties =>
-        prevProperties.map(property =>
-          property.id === propertyId
-            ? { ...property, is_favourite: result.is_favourite }
-            : property
-        )
-      );
-    } catch (err) {
-      console.error('Error toggling favourite:', err);
-      toast(getApiErrorMessage(err, 'Failed to update favourite. Please try again.'), 'error');
-    }
-  };
-
-  const handlePropertyClick = (propertyId, e) => {
-    if (e) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-    console.log('Navigating to property:', propertyId);
-    navigate(`/property/${propertyId}`);
-  };
-
-  const handleCallClick = (e) => {
-    if (e) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-    setShowComingSoon(true);
-    setTimeout(() => setShowComingSoon(false), 2000);
-  };
-
-  const handleImageClick = (propertyId, e) => {
-    if (e) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-    console.log('Image clicked, navigating to property:', propertyId);
-    navigate(`/property/${propertyId}`);
-  };
-
-  const applyFilters = () => {
-    setShowFilterModal(false);
-    fetchProperties();
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      bhkType: '',
-      minPrice: '',
-      maxPrice: '',
-      propertyFor: '',
-      propertyType: '',
-      furnishing: '',
-      parking: false,
-      amenities: [],
-      postedBy: '',
-      apartmentType: '',
-    });
-    setSortBy('recent');
-  };
-
-  const removeFilter = (key) => {
-    setFilters((prev) => {
-      const next = { ...prev };
-      if (key === 'parking') next.parking = false;
-      else if (key === 'amenities') next.amenities = [];
-      else if (key === 'price') {
-        next.minPrice = '';
-        next.maxPrice = '';
-      } else {
-        next[key] = '';
-      }
-      return next;
-    });
-  };
-
-  const formatPrice = (price) => {
-    if (!price || price === 0) return 'Price not available';
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    if (isNaN(numPrice)) return 'Price not available';
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(numPrice);
-  };
-
-  const onCardLeftScreen = (direction, property, index) => {
-    setSwipedCards(prev => [...prev, { property, index, direction }]);
-    setCurrentIndex(prev => prev - 1);
-    setRestoreDirection(null);
-
-    if (direction === 'right' && property?.id) {
-      handleSaveProperty(property.id);
-    }
-  };
-
-  const resetCards = () => {
-    setCurrentIndex(properties.length - 1);
-    setSwipedCards([]);
-    setRestoreDirection(null);
-  };
-
-  const goBack = () => {
-    if (swipedCards.length === 0) return;
-
-    const lastSwiped = swipedCards[swipedCards.length - 1];
-    setRestoreDirection(lastSwiped.direction);
-    setCurrentIndex(lastSwiped.index);
-    setSwipedCards(prev => prev.slice(0, -1));
-  };
-
-  const MobileSwipeCard = ({ property, isSwipeable = false }) => (
-    <div
-      className={`bg-white rounded-card shadow-soft-sm border border-gray-100 hover:shadow-soft-lg overflow-hidden flex flex-col transition-all duration-200 ${
-        isSwipeable ? 'h-[min(calc(100dvh-18rem),500px)]' : 'hover:-translate-y-1 cursor-pointer'
-      }`}
-      onClick={!isSwipeable ? (e) => handlePropertyClick(property.id, e) : undefined}
-    >
-      <div className={isSwipeable ? "relative h-2/5 shrink-0 overflow-hidden" : undefined}>
-        <PropertyCardGallery
-          images={property.images}
-          alt={property.apartment_name || 'Property'}
-          propertyFor={property.property_for}
-          isFavourite={Boolean(property.is_favourite)}
-          onToggleFavourite={(e) => handleSaveProperty(property.id, e)}
-          className={isSwipeable ? "h-full aspect-auto" : undefined}
-        />
-      </div>
-
-        <div className={`p-3 flex flex-col flex-grow ${isSwipeable ? 'overflow-y-auto' : ''}`}>
-        <div className="mb-2">
-          <h3 className="font-semibold text-sm text-gray-900 mb-1 line-clamp-2 leading-tight">
-            {property.property_type === 'Commercial'
-              ? `${property.commercial_subtype || property.apartment_type || 'Commercial'}${
-                  property.apartment_name ? ` · ${property.apartment_name}` : ''
-                }`
-              : `${property.bhk_type || 'N/A'} ${property.apartment_type || 'Property'}${
-                  property.apartment_name ? ` in ${property.apartment_name}` : ''
-                }`}
-          </h3>
-          <p className="text-lg font-bold text-brand-700">
-            {formatPrice(property.expected_price)}
-            {property.property_for === 'Rent/Lease' && property.expected_price && (
-              <span className="text-xs text-gray-500 font-normal">/month</span>
-            )}
-          </p>
-          {property.property_for !== 'Rent/Lease' &&
-            property.carpet_area > 0 &&
-            property.expected_price > 0 && (
-              <p className="text-[11px] font-medium text-gray-500">
-                ₹{Math.round(property.expected_price / property.carpet_area).toLocaleString('en-IN')}/sqft
-              </p>
-            )}
-          {property.verification_tier === 'verified' ? (
-            <span className="mt-1 inline-flex items-center rounded-full bg-trust-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-              Verified
-            </span>
-          ) : null}
-        </div>
-
-        <div className="flex items-center text-gray-600 mb-2">
-          <MapPin size={12} className="mr-1 flex-shrink-0 text-gray-400" />
-          <span className="text-xs line-clamp-1">
-            {property.locality || 'Location'}, {property.city || 'City'}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3 mb-2 text-gray-600 flex-wrap">
-          {property.property_type === 'Commercial' ? (
-            <>
-              {property.carpet_area > 0 ? (
-                <div className="flex items-center gap-1">
-                  <Square size={14} className="text-gray-400" />
-                  <span className="text-xs">{property.carpet_area} sqft</span>
-                </div>
-              ) : null}
-              {property.frontage_ft ? (
-                <span className="text-xs">{property.frontage_ft} ft frontage</span>
-              ) : null}
-            </>
-          ) : (
-            <>
-              {property.bhk_type && property.bhk_type.split(' ')[0] !== 'Studio' && (
-                <div className="flex items-center gap-1">
-                  <Bed size={14} className="text-gray-400" />
-                  <span className="text-xs">{property.bhk_type.split(' ')[0]}</span>
-                </div>
-              )}
-              {property.bathrooms !== undefined && property.bathrooms > 0 && (
-                <div className="flex items-center gap-1">
-                  <Bath size={14} className="text-gray-400" />
-                  <span className="text-xs">{property.bathrooms}</span>
-                </div>
-              )}
-              {Number(property.carpet_area) > 0 && (
-                <div className="flex items-center gap-1">
-                  <Square size={14} className="text-gray-400" />
-                  <span className="text-xs">{property.carpet_area} sqft</span>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between text-[10px] text-gray-500 mb-2 pb-2 border-t pt-2">
-          <span>By: <span className="font-medium text-gray-700">{property.user_type || 'N/A'}</span></span>
-          <span>{property.created_at ? new Date(property.created_at).toLocaleDateString('en-IN') : 'N/A'}</span>
-        </div>
-
-        <div className="mt-auto">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCallClick(e);
-            }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleCallClick(e);
-            }}
-            className="flex w-full items-center justify-center gap-1.5 rounded-control border border-emerald-600 py-1.5 px-2 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 z-10"
-          >
-            <Phone size={14} />
-            Call
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 
   const hasActiveFilters = Boolean(
     filters.bhkType ||
@@ -721,13 +459,7 @@ export default function PropertyFeed() {
       {/* Properties Content */}
       <div className="max-w-[90rem] mx-auto px-4 py-6 pb-24">
         {loading ? (
-          isMobile ? (
-            <div className="flex justify-center py-6">
-              <PropertyCardSkeleton compact className="w-full max-w-md" />
-            </div>
-          ) : (
-            <PropertyCardSkeletonGrid count={8} />
-          )
+          <PropertyCardSkeletonGrid count={isMobile ? 4 : 8} />
         ) : error ? (
           <LoadErrorState
             title="Couldn't load properties"
@@ -782,127 +514,7 @@ export default function PropertyFeed() {
               />
             );
           })()
-        ) : isMobile ? (
-          <div className="relative">
-            {currentIndex < 0 ? (
-              <motion.div
-                initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center justify-center h-[min(calc(100dvh-16rem),520px)]"
-              >
-                <div className="text-center p-6">
-                  <motion.div
-                    animate={reduceMotion ? undefined : { rotate: [0, 8, -8, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
-                    className="w-20 h-20 mx-auto mb-4 bg-brand-50 rounded-full flex items-center justify-center"
-                  >
-                    <TownExchangeLogo size={56} variant="full" />
-                  </motion.div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    No More Properties
-                  </h3>
-                  <p className="text-gray-600 text-sm mb-6">
-                    You&apos;ve viewed all available properties
-                  </p>
-                  <motion.button
-                    whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-                    onClick={resetCards}
-                    className="px-6 py-2.5 rounded-control text-white font-medium text-sm transition-all shadow-soft-md hover:shadow-brand-glow flex items-center justify-center gap-2 mx-auto bg-brand-500 hover:bg-brand-700"
-                  >
-                    <RotateCcw size={18} />
-                    <span>View Again</span>
-                  </motion.button>
-                </div>
-              </motion.div>
-            ) : (
-              <>
-                <div className="relative h-[min(calc(100dvh-16rem),520px)] flex items-start justify-center pt-2">
-                  <MobileSwipeDeck
-                    ref={swipeDeckRef}
-                    properties={properties}
-                    topIndex={currentIndex}
-                    restoreDirection={restoreDirection}
-                    onSwipe={onCardLeftScreen}
-                    className="h-full"
-                    renderCard={(property, isTop) => (
-                      <MobileSwipeCard property={property} isSwipeable={isTop} />
-                    )}
-                  />
-                </div>
-
-                <div className="text-center mt-4">
-                  <p className="text-sm text-gray-600 font-medium">
-                    {currentIndex >= 0 ? properties.length - currentIndex : 0} of {properties.length}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Swipe right to save · left to skip
-                  </p>
-                </div>
-
-                <div className="flex justify-center items-center gap-4 mt-6">
-                  <WithTooltip label="Undo last swipe">
-                    <motion.button
-                      whileTap={reduceMotion ? undefined : { scale: 0.92 }}
-                      onClick={goBack}
-                      disabled={swipedCards.length === 0}
-                      className={`w-12 h-12 rounded-full bg-white border border-gray-300 shadow-soft-md flex items-center justify-center transition-all ${
-                        swipedCards.length === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-50 hover:shadow-soft-lg'
-                      }`}
-                      aria-label="Undo last swipe"
-                    >
-                      <RotateCcw size={20} className="text-gray-600" />
-                    </motion.button>
-                  </WithTooltip>
-
-                  <WithTooltip label="Skip this property">
-                    <motion.button
-                      whileTap={reduceMotion ? undefined : { scale: 0.9 }}
-                      onClick={() => swipeDeckRef.current?.swipe('left')}
-                      disabled={currentIndex < 0}
-                      className="w-14 h-14 rounded-full bg-white border-2 border-rose-200 shadow-soft-md flex items-center justify-center hover:bg-rose-50 transition-all"
-                      aria-label="Skip property"
-                    >
-                      <X size={24} className="text-rose-500" />
-                    </motion.button>
-                  </WithTooltip>
-
-                  <WithTooltip label="Toggle favourite">
-                    <motion.button
-                      whileTap={reduceMotion ? undefined : { scale: 0.9 }}
-                      onClick={() => {
-                        if (currentIndex >= 0) handleSaveProperty(properties[currentIndex].id);
-                      }}
-                      disabled={currentIndex < 0}
-                      className="w-12 h-12 rounded-full bg-white border border-gray-300 shadow-soft-md flex items-center justify-center hover:bg-gray-50 hover:shadow-soft-lg transition-all"
-                      aria-label="Toggle favourite"
-                    >
-                      <Heart
-                        size={22}
-                        className={
-                          currentIndex >= 0 && properties[currentIndex]?.is_favourite
-                            ? 'fill-red-500 text-red-500'
-                            : 'text-red-500'
-                        }
-                      />
-                    </motion.button>
-                  </WithTooltip>
-
-                  <WithTooltip label="Save and go next">
-                    <motion.button
-                      whileTap={reduceMotion ? undefined : { scale: 0.9 }}
-                      onClick={() => swipeDeckRef.current?.swipe('right')}
-                      disabled={currentIndex < 0}
-                      className="w-14 h-14 rounded-full bg-white border-2 border-emerald-200 shadow-soft-md flex items-center justify-center hover:bg-emerald-50 transition-all"
-                      aria-label="Save and next"
-                    >
-                      <Heart size={24} className="text-emerald-500 fill-emerald-500" />
-                    </motion.button>
-                  </WithTooltip>
-                </div>
-              </>
-            )}
-          </div>
-        ) : viewMode === 'map' ? (
+        ) : viewMode === 'map' && !isMobile ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.85fr)] lg:gap-5">
             <PropertyMapView
               properties={properties}
@@ -957,7 +569,7 @@ export default function PropertyFeed() {
             </div>
           </div>
         ) : (
-          /* Desktop: Grid View */
+          /* Vertical list on mobile, multi-column grid on larger screens */
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 md:gap-5">
               {pagedProperties.map((property) => (
@@ -972,7 +584,6 @@ export default function PropertyFeed() {
                   }
                   onCompareToggle={toggleCompare}
                   isComparing={isComparing(property.id)}
-                  onCall={handleCallClick}
                 />
               ))}
             </div>
@@ -989,15 +600,6 @@ export default function PropertyFeed() {
           </div>
         )}
       </div>
-
-      {/* Coming Soon Toast */}
-      {showComingSoon && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[9999]">
-          <div className="bg-gray-900 text-white px-6 py-3 rounded-lg shadow-xl">
-            <p className="text-sm font-medium">📞 Call feature coming soon!</p>
-          </div>
-        </div>
-      )}
 
       {/* Filter Modal */}
       {showFilterModal && (

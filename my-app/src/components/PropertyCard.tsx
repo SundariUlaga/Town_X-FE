@@ -184,9 +184,9 @@ export function PropertyCard({
         onToggleFavourite={() => favouriteMutation.mutate()}
       />
 
-      <div className="flex flex-1 flex-col gap-2 p-3.5">
+      <div className="flex flex-col gap-1.5 p-3.5">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-foreground">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-foreground">
             {title}
           </h3>
           <div className="flex shrink-0 items-center gap-1">
@@ -214,39 +214,46 @@ export function PropertyCard({
           </div>
         </div>
 
-        <div className="flex min-h-[1.25rem] flex-wrap items-center gap-1.5">
-          {isVerified ? (
-            <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-trust-700">
-              <BadgeCheck className="size-3.5" /> Verified Property
-            </span>
-          ) : property.verification_tier === "pending" ? (
-            <Badge className="border-transparent bg-amber-100 text-amber-800">Pending</Badge>
-          ) : null}
-          {postedBy === "Owner" ? (
-            <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-muted-foreground">
-              <ShieldCheck className="size-3.5 text-trust-600" /> Owner Listed
-            </span>
-          ) : postedBy ? (
-            <span className="text-[11px] font-medium text-muted-foreground">{postedBy}</span>
-          ) : null}
-          {enrichment?.isFeatured ? (
-            <Badge variant="accent" className="border-transparent bg-accent text-white">
-              <Star className="size-3" /> Featured
-            </Badge>
-          ) : null}
-          {enrichment?.isPremium ? (
-            <Badge className="border-transparent bg-brand-800 text-white">
-              <Sparkles className="size-3" /> Premium
-            </Badge>
-          ) : null}
-          {showVerifiedPhotos ? (
-            <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-trust-700">
-              <Check className="size-3" /> Verified photos
-            </span>
-          ) : null}
-        </div>
+        {(isVerified ||
+          property.verification_tier === "pending" ||
+          postedBy ||
+          enrichment?.isFeatured ||
+          enrichment?.isPremium ||
+          showVerifiedPhotos) ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {isVerified ? (
+              <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-trust-700">
+                <BadgeCheck className="size-3.5" /> Verified Property
+              </span>
+            ) : property.verification_tier === "pending" ? (
+              <Badge className="border-transparent bg-amber-100 text-amber-800">Pending</Badge>
+            ) : null}
+            {postedBy === "Owner" ? (
+              <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-muted-foreground">
+                <ShieldCheck className="size-3.5 text-trust-600" /> Owner Listed
+              </span>
+            ) : postedBy ? (
+              <span className="text-[11px] font-medium text-muted-foreground">{postedBy}</span>
+            ) : null}
+            {enrichment?.isFeatured ? (
+              <Badge variant="accent" className="border-transparent bg-accent text-white">
+                <Star className="size-3" /> Featured
+              </Badge>
+            ) : null}
+            {enrichment?.isPremium ? (
+              <Badge className="border-transparent bg-brand-800 text-white">
+                <Sparkles className="size-3" /> Premium
+              </Badge>
+            ) : null}
+            {showVerifiedPhotos ? (
+              <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-trust-700">
+                <Check className="size-3" /> Verified photos
+              </span>
+            ) : null}
+          </div>
+        ) : null}
 
-        <div className="flex min-h-[1.75rem] flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span className="font-display text-xl font-semibold text-brand-700">
             {formatInr(property.expected_price, { compact: true })}
           </span>
@@ -258,7 +265,7 @@ export function PropertyCard({
           ) : null}
         </div>
 
-        <div className="flex min-h-[1rem] items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <MapPin className="size-3.5 flex-shrink-0" />
           <span className="line-clamp-1">
             {property.locality}, {property.city}
@@ -268,7 +275,7 @@ export function PropertyCard({
           ) : null}
         </div>
 
-        <div className="flex min-h-[1rem] flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {isCommercial ? (
             <>
               {areaSqft > 0 ? (
@@ -328,7 +335,7 @@ export function PropertyCard({
         </div>
 
         {property.created_at ? (
-          <p className="mt-auto text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground">
             {formatRelativeTime(property.created_at)}
           </p>
         ) : null}
