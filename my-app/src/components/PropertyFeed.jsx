@@ -45,7 +45,9 @@ export default function PropertyFeed() {
   const [errorCause, setErrorCause] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 1023px)').matches : true
+  );
 
   const [sortBy, setSortBy] = useState('recent');
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'map'
@@ -80,7 +82,7 @@ export default function PropertyFeed() {
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+      setIsMobile(window.matchMedia('(max-width: 1023px)').matches);
     };
 
     checkMobile();
@@ -573,51 +575,56 @@ export default function PropertyFeed() {
             </div>
           </div>
         ) : (
-          /* Compact vertical list on mobile; multi-column cards from md up */
+          /* Phones/tablets: compact vertical list. Desktop: card grid. */
           <div className="space-y-6">
-            <div className="flex flex-col gap-2.5 md:hidden">
-              {pagedProperties.map((property) => (
-                <PropertyCard
-                  key={property.id}
-                  variant="list"
-                  property={property}
-                  onOpenDetails={(id) => navigate(`/property/${id}`, { state: { from: '/property-feed' } })}
-                  onFavouriteChange={(id, isFav) =>
-                    setProperties((prev) =>
-                      prev.map((p) => (p.id === id ? { ...p, is_favourite: isFav } : p))
-                    )
-                  }
-                />
-              ))}
-            </div>
-            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 md:gap-5">
-              {pagedProperties.map((property) => (
-                <PropertyCard
-                  key={property.id}
-                  property={property}
-                  onOpenDetails={(id) => navigate(`/property/${id}`, { state: { from: '/property-feed' } })}
-                  onFavouriteChange={(id, isFav) =>
-                    setProperties((prev) =>
-                      prev.map((p) => (p.id === id ? { ...p, is_favourite: isFav } : p))
-                    )
-                  }
-                  onCompareToggle={toggleCompare}
-                  isComparing={isComparing(property.id)}
-                />
-              ))}
-            </div>
-            {!isMobile && feedPageCount > 1 ? (
-              <Pagination
-                page={feedPage}
-                pageCount={feedPageCount}
-                onPageChange={(p) => {
-                  setFeedPage(p);
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                totalItems={feedTotal}
-                pageSize={feedPageSize}
-              />
-            ) : null}
+            {isMobile ? (
+              <div className="flex flex-col gap-2.5">
+                {pagedProperties.map((property) => (
+                  <PropertyCard
+                    key={property.id}
+                    variant="list"
+                    property={property}
+                    onOpenDetails={(id) => navigate(`/property/${id}`, { state: { from: '/property-feed' } })}
+                    onFavouriteChange={(id, isFav) =>
+                      setProperties((prev) =>
+                        prev.map((p) => (p.id === id ? { ...p, is_favourite: isFav } : p))
+                      )
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 md:gap-5">
+                  {pagedProperties.map((property) => (
+                    <PropertyCard
+                      key={property.id}
+                      property={property}
+                      onOpenDetails={(id) => navigate(`/property/${id}`, { state: { from: '/property-feed' } })}
+                      onFavouriteChange={(id, isFav) =>
+                        setProperties((prev) =>
+                          prev.map((p) => (p.id === id ? { ...p, is_favourite: isFav } : p))
+                        )
+                      }
+                      onCompareToggle={toggleCompare}
+                      isComparing={isComparing(property.id)}
+                    />
+                  ))}
+                </div>
+                {feedPageCount > 1 ? (
+                  <Pagination
+                    page={feedPage}
+                    pageCount={feedPageCount}
+                    onPageChange={(p) => {
+                      setFeedPage(p);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    totalItems={feedTotal}
+                    pageSize={feedPageSize}
+                  />
+                ) : null}
+              </>
+            )}
           </div>
         )}
       </div>

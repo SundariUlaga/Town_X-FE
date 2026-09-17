@@ -815,22 +815,16 @@ export default function HomePage() {
               {recentlyAddedLoading ? (
                 <div className="py-10 text-center text-sm text-gray-500">Loading listings…</div>
               ) : recentlyAdded.length > 0 ? (
-                <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2 scrollbar-hide">
+                <div className="flex flex-col gap-2.5">
                   {recentlyAdded.slice(0, 6).map((property) => (
-                    <div
+                    <PropertyCard
                       key={property.id}
-                      className="w-[min(72vw,260px)] max-w-[260px] shrink-0"
-                    >
-                      <PropertyCard
-                        property={property}
-                        className="w-full"
-                        onOpenDetails={(propertyId) =>
-                          navigate(`/property/${propertyId}`, { state: { from: "/home" } })
-                        }
-                        onCompareToggle={toggleCompare}
-                        isComparing={isComparing(property.id)}
-                      />
-                    </div>
+                      variant="list"
+                      property={property}
+                      onOpenDetails={(propertyId) =>
+                        navigate(`/property/${propertyId}`, { state: { from: "/home" } })
+                      }
+                    />
                   ))}
                 </div>
               ) : (
@@ -859,22 +853,16 @@ export default function HomePage() {
                     See all
                   </button>
                 </div>
-                <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2 scrollbar-hide">
+                <div className="flex flex-col gap-2.5">
                   {recommendedForYou.map((property) => (
-                    <div
+                    <PropertyCard
                       key={property.id}
-                      className="w-[min(72vw,260px)] max-w-[260px] shrink-0"
-                    >
-                      <PropertyCard
-                        property={property}
-                        className="w-full"
-                        onOpenDetails={(propertyId) =>
-                          navigate(`/property/${propertyId}`, { state: { from: "/home" } })
-                        }
-                        onCompareToggle={toggleCompare}
-                        isComparing={isComparing(property.id)}
-                      />
-                    </div>
+                      variant="list"
+                      property={property}
+                      onOpenDetails={(propertyId) =>
+                        navigate(`/property/${propertyId}`, { state: { from: "/home" } })
+                      }
+                    />
                   ))}
                 </div>
               </section>
