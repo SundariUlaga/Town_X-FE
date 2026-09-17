@@ -49,9 +49,6 @@ function NavDivider() {
   return <span className="hidden md:block h-6 w-px bg-gray-200 shrink-0" aria-hidden />;
 }
 
-const postButtonClass =
-  "items-center gap-1.5 rounded-control bg-secondary-500 px-3 py-2 text-xs font-semibold text-white shadow-soft-sm hover:bg-secondary-600 hover:shadow-secondary-glow transition-colors";
-
 const postButtonCompactClass =
   "items-center gap-1 rounded-control bg-secondary-500 px-2.5 py-1.5 text-xs font-semibold text-white shadow-soft-sm hover:bg-secondary-600 transition-colors";
 
@@ -239,6 +236,20 @@ function AppMenuDrawer({ open, onClose, onPostProperty }: AppMenuDrawerProps) {
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+          {onPostProperty ? (
+            <button
+              type="button"
+              className="mb-3 flex w-full items-center justify-center gap-2 rounded-control bg-secondary-500 px-3 py-3 text-sm font-semibold text-white hover:bg-secondary-600"
+              onClick={() => {
+                onClose();
+                onPostProperty();
+              }}
+            >
+              <Plus className="size-4" />
+              Post
+            </button>
+          ) : null}
+
           <p className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
             Explore
           </p>
@@ -293,20 +304,6 @@ function AppMenuDrawer({ open, onClose, onPostProperty }: AppMenuDrawerProps) {
             Advertise
           </button>
 
-          {onPostProperty ? (
-            <button
-              type="button"
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-control bg-secondary-500 px-3 py-3 text-sm font-semibold text-white hover:bg-secondary-600"
-              onClick={() => {
-                onClose();
-                onPostProperty();
-              }}
-            >
-              <Plus className="size-4" />
-              Post free property
-            </button>
-          ) : null}
-
           <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
             Account
           </p>
@@ -358,16 +355,12 @@ function AppMenuDrawer({ open, onClose, onPostProperty }: AppMenuDrawerProps) {
   );
 }
 
-type DesktopNavProps = {
-  onPostProperty?: () => void;
-};
-
 /**
  * Portal-style nav (99acres / NoBroker):
- * Browse tools + always-on Advertise + Post free property CTA for everyone.
+ * Browse tools + Advertise. Seller Post CTA lives in the navbar actions.
  * Buyer extras (Favourites / Enquiries) and Owner Dashboard stay role-aware.
  */
-function DesktopNavLinks({ onPostProperty }: DesktopNavProps) {
+function DesktopNavLinks() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -444,17 +437,6 @@ function DesktopNavLinks({ onPostProperty }: DesktopNavProps) {
       >
         Advertise
       </button>
-      {onPostProperty ? (
-        <button
-          type="button"
-          onClick={onPostProperty}
-          className={cn("hidden lg:inline-flex", postButtonClass)}
-          aria-label="Post free property"
-        >
-          <Plus className="size-3.5 shrink-0" />
-          Post free property
-        </button>
-      ) : null}
     </>
   );
 }
@@ -544,20 +526,22 @@ export function AppNavbar({
 
             <div className="flex items-center gap-0.5 sm:gap-1 md:gap-1.5 shrink-0">
               {/* Desktop / tablet nav — hidden on mobile (lives in drawer) */}
-              <DesktopNavLinks onPostProperty={openPostFlow} />
+              <DesktopNavLinks />
 
-              {/* Compact Post: tablet only (desktop has full label; mobile uses drawer CTA) */}
-              <WithTooltip label="Post free property">
-                <button
-                  type="button"
-                  onClick={openPostFlow}
-                  className={cn("hidden md:inline-flex lg:hidden", postButtonCompactClass)}
-                  aria-label="Post free property"
-                >
-                  <Plus className="size-3.5 shrink-0" />
-                  Post
-                </button>
-              </WithTooltip>
+              {/* Seller Post stays in the navbar at every breakpoint */}
+              {user?.role === "owner" ? (
+                <WithTooltip label="Post">
+                  <button
+                    type="button"
+                    onClick={openPostFlow}
+                    className={cn("inline-flex", postButtonCompactClass)}
+                    aria-label="Post"
+                  >
+                    <Plus className="size-3.5 shrink-0" />
+                    Post
+                  </button>
+                </WithTooltip>
+              ) : null}
 
               {/* Profile dropdown: desktop/tablet only — mobile uses drawer account section */}
               <div className="hidden md:block">
