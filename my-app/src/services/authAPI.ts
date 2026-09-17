@@ -40,6 +40,15 @@ export const authAPI = {
     const response = await api.get<User>("/api/auth/me", { signal });
     return response.data;
   },
+
+  /** Clears HttpOnly session cookie on the API. */
+  logout: async (): Promise<void> => {
+    try {
+      await api.post("/api/auth/logout");
+    } catch {
+      // Still clear client cache even if network fails.
+    }
+  },
 };
 
 export default authAPI;

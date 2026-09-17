@@ -2,8 +2,13 @@ import React, { useState, useRef } from "react";
 import { Camera, Image as ImageIcon, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import axios from "axios";
+import { useAuth } from "@/context/AuthContext";
+import { getToken } from "@/lib/authStorage";
+import { getApiBaseUrl } from "@/lib/apiBase";
+import { WithTooltip } from "@/components/ui/WithTooltip";
+import TownLoader from "@/components/shared/TownLoader";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8024";
+const API_BASE_URL = getApiBaseUrl();
 
 const backdropVariants = {
   hidden: { opacity: 0 },
@@ -18,6 +23,7 @@ const modalVariants = {
 };
 
 export default function StoryUploadModal({ isOpen, onClose, onSuccess }) {
+  const { user } = useAuth();
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [caption, setCaption] = useState("");
@@ -65,11 +71,14 @@ export default function StoryUploadModal({ isOpen, onClose, onSuccess }) {
       formData.append("file", selectedFile);
       if (caption) formData.append("caption", caption);
       if (location) formData.append("location", location);
+      if (user?.id != null) formData.append("user_id", String(user.id));
 
       const response = await axios.post(`${API_BASE_URL}/api/stories`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
+          ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
         },
+        withCredentials: true,
       });
 
       if (onSuccess) {
@@ -118,13 +127,17 @@ export default function StoryUploadModal({ isOpen, onClose, onSuccess }) {
               <h2 className="text-sm md:text-base font-semibold text-gray-800">
                 Create Story
               </h2>
-              <button
-                onClick={handleClose}
-                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                disabled={uploading}
-              >
-                <X size={18} className="text-gray-600" />
-              </button>
+              <WithTooltip label="Close">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                  disabled={uploading}
+                  aria-label="Close"
+                >
+                  <X size={18} className="text-gray-600" />
+                </button>
+              </WithTooltip>
             </div>
 
             {/* Content */}
@@ -218,16 +231,20 @@ export default function StoryUploadModal({ isOpen, onClose, onSuccess }) {
                         className="w-full h-auto max-h-72 object-contain"
                       />
                     )}
-                    <button
-                      onClick={() => {
-                        setSelectedFile(null);
-                        setPreview(null);
-                      }}
-                      className="absolute top-2.5 right-2.5 p-1.5 bg-white rounded-full shadow-soft-md hover:bg-gray-50 transition-colors border border-gray-200"
-                      disabled={uploading}
-                    >
-                      <X size={16} className="text-gray-600" />
-                    </button>
+                    <WithTooltip label="Remove media">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedFile(null);
+                          setPreview(null);
+                        }}
+                        className="absolute top-2.5 right-2.5 p-1.5 bg-white rounded-full shadow-soft-md hover:bg-gray-50 transition-colors border border-gray-200"
+                        disabled={uploading}
+                        aria-label="Remove media"
+                      >
+                        <X size={16} className="text-gray-600" />
+                      </button>
+                    </WithTooltip>
                   </div>
 
                   {/* Caption Input */}
@@ -275,7 +292,7 @@ export default function StoryUploadModal({ isOpen, onClose, onSuccess }) {
                   >
                     {uploading ? (
                       <div className="flex items-center justify-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                        <TownLoader size="xs" />
                         Uploading...
                       </div>
                     ) : (

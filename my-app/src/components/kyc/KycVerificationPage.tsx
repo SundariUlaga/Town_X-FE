@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ShieldCheck, Smartphone, ExternalLink, CheckCircle2, AlertCircle, ArrowLeft } from "lucide-react";
+import { ShieldCheck, Smartphone, ExternalLink, CheckCircle2, AlertCircle, ArrowLeft, LogOut } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { getApiErrorMessage } from "@/lib/apiErrors";
 
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import kycAPI, { type KycConfig } from "@/services/kycAPI";
 import { statusErrorBg, statusErrorText, statusSuccessBg, statusSuccessText } from "@/lib/statusStyles";
+import { saveKycReturnState } from "@/lib/authStorage";
 
 const stepVariants = {
   hidden: { opacity: 0, x: 24 },
@@ -40,6 +41,12 @@ export default function KycVerificationPage() {
   const redirectTarget =
     (location.state as { from?: string } | null)?.from ??
     (user ? ROLE_HOME_ROUTE[user.role] : "/home");
+  const feedState = (location.state as { feedState?: unknown } | null)?.feedState;
+
+  useEffect(() => {
+    // Persist return path for DigiLocker external redirect round-trip.
+    saveKycReturnState({ from: redirectTarget, feedState });
+  }, [redirectTarget, feedState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,10 +76,12 @@ export default function KycVerificationPage() {
 
   const finishAndEnter = useCallback(async () => {
     const freshUser = await refreshUser();
-    navigate(freshUser ? getPostAuthRoute(freshUser, redirectTarget) : redirectTarget, {
+    const dest = freshUser ? getPostAuthRoute(freshUser, redirectTarget) : redirectTarget;
+    navigate(dest, {
       replace: true,
+      state: feedState != null ? { feedState } : undefined,
     });
-  }, [navigate, redirectTarget, refreshUser]);
+  }, [feedState, navigate, redirectTarget, refreshUser]);
 
   const handleVerifyMobile = async () => {
     setError(null);
@@ -125,9 +134,7 @@ export default function KycVerificationPage() {
     }
     if (step === "done") {
       void finishAndEnter();
-      return;
     }
-    logoutToHome();
   };
 
   const motionProps = reduceMotion
@@ -144,27 +151,43 @@ export default function KycVerificationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-brand-50 via-white to-white px-4 py-8 safe-top safe-bottom">
-      <div className="mx-auto max-w-lg">
-        <motion.button
-          type="button"
-          onClick={handleStepBack}
-          whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-          className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-brand-700 transition-colors"
-        >
-          <ArrowLeft size={16} />
-          {step === "intro" ? "Sign out" : "Back"}
-        </motion.button>
+    <div className="min-h-screen bg-white safe-top safe-bottom">
+      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white">
+        <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 py-3">
+          <TownExchangeLogo size={40} variant="full" className="rounded-lg" />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-gray-700"
+            onClick={logoutToHome}
+          >
+            <LogOut size={14} />
+            Sign out
+          </Button>
+        </div>
+      </header>
 
-        <div className="mb-8 flex flex-col items-center text-center">
-          <TownExchangeLogo size={48} />
-          <h1 className="mt-4 text-2xl font-bold text-gray-900">Verify your identity</h1>
+      <div className="mx-auto max-w-lg px-4 py-6">
+        {step !== "intro" ? (
+          <button
+            type="button"
+            onClick={handleStepBack}
+            className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-brand-700 transition-colors"
+          >
+            <ArrowLeft size={16} />
+            Back
+          </button>
+        ) : null}
+
+        <div className="mb-6">
+          <h1 className="font-display text-2xl font-semibold text-gray-900">Verify your identity</h1>
           <p className="mt-2 text-sm text-gray-600">
             {APP_NAME} uses DigiLocker eKYC to keep the marketplace safe. Complete verification
             to access the app.
           </p>
           {config ? (
-            <div className="mt-3 flex flex-col items-center gap-2">
+            <div className="mt-3 flex flex-col gap-2">
               <span
                 className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border ${
                   config.sandbox_fallback

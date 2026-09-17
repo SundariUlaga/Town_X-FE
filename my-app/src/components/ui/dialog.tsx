@@ -3,6 +3,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { WithTooltip } from "@/components/ui/WithTooltip";
 
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
@@ -42,10 +43,15 @@ const DialogContent = React.forwardRef<
     >
       {children}
       {showCloseButton && (
-        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-control p-1.5 opacity-70 transition-opacity hover:opacity-100 hover:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <X className="size-4" />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
+        <WithTooltip label="Close">
+          <DialogPrimitive.Close
+            className="absolute right-4 top-4 rounded-control p-1.5 opacity-70 transition-opacity hover:opacity-100 hover:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Close"
+          >
+            <X className="size-4" />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        </WithTooltip>
       )}
     </DialogPrimitive.Content>
   </DialogPortal>

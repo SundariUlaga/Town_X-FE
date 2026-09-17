@@ -4,8 +4,10 @@ import { X, Heart, Send, MoreHorizontal, ChevronLeft, ChevronRight } from 'lucid
 import { motion, useReducedMotion } from 'motion/react';
 import axios from 'axios';
 import TownLoader from '@/components/shared/TownLoader';
+import { WithTooltip } from '@/components/ui/WithTooltip';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8024';
+const API_BASE_URL = getApiBaseUrl();
 
 export default function StoryViewer() {
   const { id } = useParams();
@@ -46,7 +48,9 @@ export default function StoryViewer() {
   const loadStory = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/api/stories/${id}`);
+      const response = await axios.get(`${API_BASE_URL}/api/stories/${id}`, {
+        withCredentials: true,
+      });
       setStory(response.data);
       console.log('✅ Story loaded:', response.data);
     } catch (error) {
@@ -144,13 +148,13 @@ export default function StoryViewer() {
             {/* Profile Picture Placeholder */}
             <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gradient-to-br from-brand-500 to-brand-800 flex items-center justify-center shadow-soft-sm">
               <span className="text-white font-bold text-sm">
-                {story.user_id ? story.user_id.charAt(0).toUpperCase() : 'U'}
+                {(story.user_name || story.user_id || 'U').charAt(0).toUpperCase()}
               </span>
             </div>
 
             <div className="flex-1 min-w-0">
               <p className="text-white font-semibold text-sm truncate">
-                {story.user_id || 'Anonymous'}
+                {story.user_name || story.user_id || 'Anonymous'}
               </p>
               <p className="text-gray-300 text-xs truncate">
                 {getTimeAgo(story.created_at)}
@@ -159,12 +163,16 @@ export default function StoryViewer() {
           </div>
 
           {/* Close Button */}
-          <button
-            onClick={handleClose}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors"
-          >
-            <X size={24} className="text-white" />
-          </button>
+          <WithTooltip label="Close story">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              aria-label="Close story"
+            >
+              <X size={24} className="text-white" />
+            </button>
+          </WithTooltip>
         </div>
       </div>
 
@@ -206,24 +214,47 @@ export default function StoryViewer() {
         )}
       </div>
 
-      {/* Caption & Info Overlay */}
-      {(story.caption || story.location) && (
-        <div className="absolute bottom-0 left-0 right-0 p-4 pb-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.5rem))] sm:pb-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none">
-          <div className="max-w-xl mx-auto space-y-2 pr-16 sm:pr-0">
-            {story.caption && (
-              <p className="text-white text-sm md:text-base font-medium line-clamp-4 break-words">
-                {story.caption}
-              </p>
-            )}
-            {story.location && (
-              <div className="flex items-center gap-2 text-gray-300 text-xs md:text-sm min-w-0">
-                <span className="shrink-0">📍</span>
-                <span className="truncate">{story.location}</span>
-              </div>
-            )}
-          </div>
+      {/* Caption / property CTA */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 pb-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.5rem))] sm:pb-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+        <div className="max-w-xl mx-auto space-y-2 pr-16 sm:pr-0 pointer-events-none">
+          {story.property_price != null ? (
+            <p className="text-white text-lg font-bold">
+              {new Intl.NumberFormat("en-IN", {
+                style: "currency",
+                currency: "INR",
+                maximumFractionDigits: 0,
+              }).format(story.property_price)}
+            </p>
+          ) : null}
+          {(story.property_locality || story.location) && (
+            <div className="flex items-center gap-2 text-gray-300 text-xs md:text-sm min-w-0">
+              <span className="shrink-0">📍</span>
+              <span className="truncate">
+                {[story.property_locality || story.location, story.property_city]
+                  .filter(Boolean)
+                  .join(", ")}
+              </span>
+            </div>
+          )}
+          {story.caption && (
+            <p className="text-white text-sm md:text-base font-medium line-clamp-3 break-words">
+              {story.caption}
+            </p>
+          )}
         </div>
-      )}
+        {story.property_id ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/property/${story.property_id}`, { state: { from: `/story/${story.id}` } });
+            }}
+            className="mt-3 pointer-events-auto rounded-control bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+          >
+            View listing
+          </button>
+        ) : null}
+      </div>
 
       {/* Story Stats - Bottom Right */}
       <div className="absolute bottom-[max(5rem,calc(env(safe-area-inset-bottom)+3.5rem))] sm:bottom-20 right-3 sm:right-4 flex flex-col items-center gap-3 sm:gap-4 z-10">
@@ -247,17 +278,21 @@ export default function StoryViewer() {
       </div>
 
       {/* Navigation Arrows (Desktop) */}
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={(e) => {
-          e.stopPropagation();
-          navigate(-1);
-        }}
-        className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 items-center justify-center rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-sm transition-colors"
-      >
-        <ChevronLeft size={28} className="text-white" />
-      </motion.button>
+      <WithTooltip label="Go back" side="right">
+        <motion.button
+          type="button"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(-1);
+          }}
+          className="hidden md:flex absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 items-center justify-center rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-sm transition-colors"
+          aria-label="Go back"
+        >
+          <ChevronLeft size={28} className="text-white" />
+        </motion.button>
+      </WithTooltip>
     </motion.div>
   );
 }

@@ -30,6 +30,8 @@ const MyAdvertisementsPage = lazy(() => import("@/components/advertisements/MyAd
 const EditAdvertisementPage = lazy(() => import("@/components/advertisements/EditAdvertisementPage"));
 const AdminAppRedirect = lazy(() => import("@/components/admin/AdminAppRedirect"));
 const MyEnquiriesPage = lazy(() => import("@/components/enquiries/MyEnquiriesPage"));
+const ComparePage = lazy(() => import("@/components/compare/ComparePage"));
+const NotFoundPage = lazy(() => import("@/components/shared/NotFoundPage"));
 
 function Lazy({ children }) {
   return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
@@ -106,6 +108,16 @@ function App() {
               <ProtectedRoute>
                 <Lazy>
                   <PropertyDetails />
+                </Lazy>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/compare"
+            element={
+              <ProtectedRoute>
+                <Lazy>
+                  <ComparePage />
                 </Lazy>
               </ProtectedRoute>
             }
@@ -258,7 +270,7 @@ function App() {
             />
           </Route>
 
-          <Route path="*" element={<DynamicLandingPage />} />
+          <Route path="*" element={<Lazy><NotFoundPage /></Lazy>} />
         </Routes>
       </AuthDrawerProvider>
     </Router>

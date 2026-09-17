@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
 
 import { FaqItem, LegalList, LegalNote, LegalSection } from "@/components/legal/LegalProse";
-import { LEGAL_ROUTES } from "@/components/legal/FooterLinks";
+import { LEGAL_ROUTES, useLegalLinkState } from "@/components/legal/FooterLinks";
 import { APP_NAME, APP_LOCATION } from "@/components/brand/TownExchangeLogo";
 
 export function FaqContent() {
+  const linkState = useLegalLinkState();
+
   return (
     <>
       <LegalSection title="Getting started">
@@ -187,7 +189,11 @@ export function FaqContent() {
               <p>
                 Email privacy@townexchange.in with your account email and a deletion request. We
                 will process it in line with our{" "}
-                <Link to={LEGAL_ROUTES.privacy} className="font-medium text-brand-600 hover:underline">
+                <Link
+                  to={LEGAL_ROUTES.privacy}
+                  state={linkState}
+                  className="font-medium text-brand-600 hover:underline"
+                >
                   Privacy Policy
                 </Link>
                 .
@@ -212,7 +218,11 @@ export function FaqContent() {
 
       <LegalNote>
         Still have questions? Read our{" "}
-        <Link to={LEGAL_ROUTES.about} className="font-medium text-brand-700 hover:underline">
+        <Link
+          to={LEGAL_ROUTES.about}
+          state={linkState}
+          className="font-medium text-brand-700 hover:underline"
+        >
           About Us
         </Link>{" "}
         page or email{" "}
@@ -220,7 +230,11 @@ export function FaqContent() {
           support@townexchange.in
         </a>
         . For legal terms, see our{" "}
-        <Link to={LEGAL_ROUTES.terms} className="font-medium text-brand-700 hover:underline">
+        <Link
+          to={LEGAL_ROUTES.terms}
+          state={linkState}
+          className="font-medium text-brand-700 hover:underline"
+        >
           Terms &amp; Conditions
         </Link>
         .

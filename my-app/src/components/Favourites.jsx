@@ -8,14 +8,28 @@ import LoadErrorState from "@/components/shared/LoadErrorState";
 import ContextualEmptyState from "@/components/shared/ContextualEmptyState";
 import { PropertyCardSkeletonGrid } from "@/components/shared/PropertyCardSkeleton";
 import AppNavbar from "@/components/shared/AppNavbar";
+import EmptyDiscoveryRail from "@/components/shared/EmptyDiscoveryRail";
+import { Pagination } from "@/components/ui/pagination";
+import { useClientPagination } from "@/hooks/useClientPagination";
+import { useAuth, ROLE_HOME_ROUTE } from "@/context/AuthContext";
+import { useCompare } from "@/context/CompareContext";
+import { useLocationContext } from "@/context/LocationContext";
 
 export default function Favourites() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { locationLabel } = useLocationContext();
+  const backTo = user ? ROLE_HOME_ROUTE[user.role] : "/home";
+  const { toggle: toggleCompare, isComparing } = useCompare();
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState(null);
   const [errorCause, setErrorCause] = useState(null);
+  const { page, setPage, pageCount, pageItems, pageSize, totalItems } = useClientPagination(
+    properties,
+    12
+  );
 
   useEffect(() => {
     loadFavourites();
@@ -58,8 +72,8 @@ export default function Favourites() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
-      <AppNavbar variant="inner" backTo="/home" maxWidth="7xl" />
+    <div className="min-h-screen bg-gray-50">
+      <AppNavbar variant="inner" backTo={backTo} maxWidth="7xl" />
 
       <div className="bg-white border-b border-gray-200 px-3 sm:px-4 py-3 max-w-7xl mx-auto">
         <form onSubmit={handleSearch} className="relative max-w-2xl">
@@ -69,17 +83,19 @@ export default function Favourites() {
             placeholder="Search favourites..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 md:py-2.5 text-sm md:text-base border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 text-sm md:text-base border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
           />
         </form>
       </div>
 
-      <div className="bg-gradient-to-r from-brand-600 via-secondary-500 to-brand-700 text-white px-4 py-4 md:py-6">
-        <div className="max-w-7xl mx-auto flex items-center gap-3">
-          <Heart className="w-8 h-8 md:w-10 md:h-10 fill-white" />
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 pt-5 pb-2">
+        <div className="flex items-start gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+            <Heart className="size-5" />
+          </div>
           <div>
-            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold">My Favourites</h1>
-            <p className="text-sm md:text-base opacity-90">
+            <h1 className="font-display text-xl md:text-2xl font-semibold text-gray-900">Favourites</h1>
+            <p className="mt-0.5 text-sm text-gray-500">
               {loading
                 ? "Loading your saved listings…"
                 : `${properties.length} saved ${properties.length === 1 ? "property" : "properties"}`}
@@ -88,7 +104,7 @@ export default function Favourites() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5 pb-20 safe-bottom">
         {loading && <PropertyCardSkeletonGrid count={4} />}
 
         {error && (
@@ -100,33 +116,51 @@ export default function Favourites() {
         )}
 
         {!loading && !error && properties.length === 0 && (
-          <ContextualEmptyState
-            title="No saved properties yet"
-            description="Tap the heart icon on any listing to save it here for later."
-            actionLabel="Browse properties"
-            onAction={() => navigate("/property-feed")}
-            icon={<HeartOff className="size-6" />}
-          />
+          <>
+            <ContextualEmptyState
+              title="No saved properties yet"
+              description="Tap the heart icon on any listing to save it here for later."
+              actionLabel="Browse properties"
+              onAction={() => navigate("/property-feed")}
+              icon={<HeartOff className="size-6" />}
+            />
+            <EmptyDiscoveryRail
+              title={locationLabel ? `Trending in ${locationLabel}` : "Recommended for you"}
+              subtitle="Start exploring — save what you like"
+              fromPath="/favourites"
+            />
+          </>
         )}
 
         {!loading && !error && properties.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
-            {properties.map((property) => (
-              <PropertyCard
-                key={property.id}
-                property={property}
-                onOpenDetails={handlePropertyClick}
-                onFavouriteChange={(id, isFav) => {
-                  if (!isFav) {
-                    setProperties((prev) => prev.filter((p) => p.id !== id));
-                  } else {
-                    setProperties((prev) =>
-                      prev.map((p) => (p.id === id ? { ...p, is_favourite: isFav } : p))
-                    );
-                  }
-                }}
-              />
-            ))}
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
+              {pageItems.map((property) => (
+                <PropertyCard
+                  key={property.id}
+                  property={property}
+                  onOpenDetails={handlePropertyClick}
+                  onFavouriteChange={(id, isFav) => {
+                    if (!isFav) {
+                      setProperties((prev) => prev.filter((p) => p.id !== id));
+                    } else {
+                      setProperties((prev) =>
+                        prev.map((p) => (p.id === id ? { ...p, is_favourite: isFav } : p))
+                      );
+                    }
+                  }}
+                  onCompareToggle={toggleCompare}
+                  isComparing={isComparing(property.id)}
+                />
+              ))}
+            </div>
+            <Pagination
+              page={page}
+              pageCount={pageCount}
+              onPageChange={setPage}
+              totalItems={totalItems}
+              pageSize={pageSize}
+            />
           </div>
         )}
       </div>

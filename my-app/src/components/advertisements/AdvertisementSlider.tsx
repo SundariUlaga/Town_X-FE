@@ -1,19 +1,32 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, MapPin, Megaphone } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Megaphone, Phone } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import advertisementAPI from "@/services/advertisementAPI";
 import TownLoader from "@/components/shared/TownLoader";
+import MarkdownContent from "@/components/shared/MarkdownContent";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { WithTooltip } from "@/components/ui/WithTooltip";
 import { useAuth } from "@/context/AuthContext";
+import { useAuthDrawer } from "@/context/AuthDrawerContext";
 import type { Advertisement } from "@/types/advertisement";
 
 export function AdvertisementSlider() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { openAuthDrawer } = useAuthDrawer();
   const [index, setIndex] = useState(0);
   const [tracked, setTracked] = useState<Set<number>>(new Set());
+  const [detailAd, setDetailAd] = useState<Advertisement | null>(null);
 
   const { data: ads = [], isLoading } = useQuery({
     queryKey: ["ad-slider"],
@@ -64,11 +77,19 @@ export function AdvertisementSlider() {
               </p>
             </div>
           </div>
-          <Button asChild className="shrink-0 bg-brand-500 hover:bg-brand-700 text-white">
-            <Link to={isAuthenticated ? "/advertise/submit" : "/advertise/my"}>
+          {isAuthenticated ? (
+            <Button asChild className="shrink-0 bg-brand-500 hover:bg-brand-700 text-white">
+              <Link to="/advertise/submit">Advertise your property</Link>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              className="shrink-0 bg-brand-500 hover:bg-brand-700 text-white"
+              onClick={() => openAuthDrawer("login", { from: "/advertise/submit" })}
+            >
               Advertise your property
-            </Link>
-          </Button>
+            </Button>
+          )}
         </div>
       </section>
     );
@@ -83,6 +104,7 @@ export function AdvertisementSlider() {
       return;
     }
     advertisementAPI.track(item.id, "view").catch(() => {});
+    setDetailAd(item);
   };
 
   const handleEnquiry = (item: Advertisement) => {
@@ -116,7 +138,7 @@ export function AdvertisementSlider() {
               className="bg-brand-500 hover:bg-brand-700 text-white"
               onClick={() => handleExplore(ad)}
             >
-              {ad.button_text || "View Details"}
+              {ad.button_text || "Learn more"}
             </Button>
             {ad.contact_phone ? (
               <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10" onClick={() => handleEnquiry(ad)}>
@@ -142,35 +164,93 @@ export function AdvertisementSlider() {
 
       {ads.length > 1 ? (
         <>
-          <button
-            type="button"
-            aria-label="Previous slide"
-            onClick={() => setIndex((i) => (i - 1 + ads.length) % ads.length)}
-            className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white hover:bg-black/60"
-          >
-            <ChevronLeft className="size-5" />
-          </button>
-          <button
-            type="button"
-            aria-label="Next slide"
-            onClick={() => setIndex((i) => (i + 1) % ads.length)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white hover:bg-black/60"
-          >
-            <ChevronRight className="size-5" />
-          </button>
+          <WithTooltip label="Previous promotion" side="right">
+            <button
+              type="button"
+              aria-label="Previous slide"
+              onClick={() => setIndex((i) => (i - 1 + ads.length) % ads.length)}
+              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white hover:bg-black/60"
+            >
+              <ChevronLeft className="size-5" />
+            </button>
+          </WithTooltip>
+          <WithTooltip label="Next promotion" side="left">
+            <button
+              type="button"
+              aria-label="Next slide"
+              onClick={() => setIndex((i) => (i + 1) % ads.length)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white hover:bg-black/60"
+            >
+              <ChevronRight className="size-5" />
+            </button>
+          </WithTooltip>
           <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
             {ads.map((item, i) => (
-              <button
-                key={item.id}
-                type="button"
-                aria-label={`Go to slide ${i + 1}`}
-                onClick={() => setIndex(i)}
-                className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/50"}`}
-              />
+              <WithTooltip key={item.id} label={`Go to slide ${i + 1}`}>
+                <button
+                  type="button"
+                  aria-label={`Go to slide ${i + 1}`}
+                  onClick={() => setIndex(i)}
+                  className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/50"}`}
+                />
+              </WithTooltip>
             ))}
           </div>
         </>
       ) : null}
+
+      <Dialog open={Boolean(detailAd)} onOpenChange={(open) => !open && setDetailAd(null)}>
+        <DialogContent className="max-w-lg">
+          {detailAd ? (
+            <>
+              <DialogHeader>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-brand-600">
+                  {detailAd.badge_text || "Featured project"}
+                </p>
+                <DialogTitle>{detailAd.title}</DialogTitle>
+                <DialogDescription className="flex items-center gap-1.5">
+                  <MapPin className="size-3.5 shrink-0" />
+                  {detailAd.location}
+                </DialogDescription>
+              </DialogHeader>
+
+              {detailAd.banner_url ? (
+                <img
+                  src={detailAd.banner_url}
+                  alt=""
+                  className="h-40 w-full rounded-control object-cover"
+                />
+              ) : null}
+
+              {detailAd.selling_point ? (
+                <p className="text-sm font-medium text-gray-800">{detailAd.selling_point}</p>
+              ) : null}
+
+              {detailAd.price_text ? (
+                <p className="text-base font-semibold text-brand-700">{detailAd.price_text}</p>
+              ) : null}
+
+              <MarkdownContent content={detailAd.description} emptyFallback="More details coming soon." />
+
+              <DialogFooter>
+                {detailAd.contact_phone ? (
+                  <Button
+                    type="button"
+                    className="bg-brand-500 hover:bg-brand-700 text-white"
+                    onClick={() => handleEnquiry(detailAd)}
+                  >
+                    <Phone className="mr-1.5 size-4" />
+                    Call / Enquire
+                  </Button>
+                ) : null}
+                <Button type="button" variant="outline" onClick={() => setDetailAd(null)}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

@@ -4,18 +4,23 @@ import { Megaphone, Upload } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import AppNavbar from "@/components/shared/AppNavbar";
+import TownLoader from "@/components/shared/TownLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dropdown } from "@/components/ui/dropdown";
 import { propertyAPI } from "@/services/api";
 import advertisementAPI from "@/services/advertisementAPI";
 import { getApiErrorMessage } from "@/lib/apiErrors";
-import TownLoader from "@/components/shared/TownLoader";
+import { useAuth, ROLE_HOME_ROUTE } from "@/context/AuthContext";
 
 const PROPERTY_TYPES = ["Land", "Plot", "Villa", "Apartment", "Project", "Commercial"];
+const PROPERTY_TYPE_OPTIONS = PROPERTY_TYPES.map((t) => ({ value: t, label: t }));
 
 export default function SubmitAdvertisementPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const backTo = user ? ROLE_HOME_ROUTE[user.role] : "/home";
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<File | null>(null);
@@ -74,13 +79,13 @@ export default function SubmitAdvertisementPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AppNavbar variant="inner" backTo="/home" logoTagline="Advertise" />
+      <AppNavbar variant="inner" backTo={backTo} logoTagline="Advertise" />
 
-      <main className="mx-auto max-w-2xl px-4 py-6">
+      <main className="mx-auto max-w-2xl px-3 sm:px-4 py-5 sm:py-6 pb-16 safe-bottom">
         <div className="mb-6 text-center">
           <Megaphone className="mx-auto size-10 text-secondary-500" />
-          <h1 className="mt-3 font-display text-2xl font-semibold text-gray-900">Advertise your property</h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <h1 className="mt-3 font-display text-xl sm:text-2xl font-semibold text-gray-900">Advertise your property</h1>
+          <p className="mt-1 text-sm text-gray-600 px-2">
             Submit your advertisement for admin review. Once approved, it can appear on the homepage slider.
           </p>
         </div>
@@ -98,34 +103,34 @@ export default function SubmitAdvertisementPage() {
 
           <div className="space-y-1.5">
             <Label htmlFor="ad-type">Property type</Label>
-            <select
+            <Dropdown
               id="ad-type"
-              className="w-full rounded-control border border-input bg-background px-3 py-2 text-sm"
+              fullWidth
               value={form.property_type}
-              onChange={(e) => onChange("property_type", e.target.value)}
-            >
-              {PROPERTY_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
+              onChange={(v) => onChange("property_type", v)}
+              options={PROPERTY_TYPE_OPTIONS}
+              aria-label="Property type"
+            />
           </div>
 
           {myProperties.length > 0 ? (
             <div className="space-y-1.5">
               <Label htmlFor="ad-property">Link existing listing (optional)</Label>
-              <select
+              <Dropdown
                 id="ad-property"
-                className="w-full rounded-control border border-input bg-background px-3 py-2 text-sm"
-                value={form.property_id}
-                onChange={(e) => onChange("property_id", e.target.value)}
-              >
-                <option value="">None</option>
-                {myProperties.map((p: { id: number; bhk_type: string; locality: string; city: string }) => (
-                  <option key={p.id} value={p.id}>
-                    {p.bhk_type} — {p.locality}, {p.city}
-                  </option>
-                ))}
-              </select>
+                fullWidth
+                value={form.property_id || ""}
+                onChange={(v) => onChange("property_id", v)}
+                placeholder="None"
+                options={[
+                  { value: "", label: "None" },
+                  ...myProperties.map((p: { id: number; bhk_type: string; locality: string; city: string }) => ({
+                    value: String(p.id),
+                    label: `${p.bhk_type} — ${p.locality}, ${p.city}`,
+                  })),
+                ]}
+                aria-label="Link existing listing"
+              />
             </div>
           ) : null}
 
@@ -148,7 +153,11 @@ export default function SubmitAdvertisementPage() {
               className="w-full rounded-control border border-input bg-background px-3 py-2 text-sm"
               value={form.description}
               onChange={(e) => onChange("description", e.target.value)}
+              placeholder={"### Project name\n\n**Key highlights**\n* Amenity one\n* Amenity two"}
             />
+            <p className="text-xs text-muted-foreground">
+              Markdown supported — headings, bold, and lists render formatted for admins and viewers.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

@@ -1,1 +1,7 @@
-export { buildPropertySearchQuery, getLocationCityFilter } from "@/lib/locationUtils";
+export {
+  buildPropertySearchQuery,
+  getLocationCityFilter,
+  getLocationLocalityFilter,
+  getLocationFilterParams,
+  locationTypeLabel,
+} from "@/lib/locationUtils";

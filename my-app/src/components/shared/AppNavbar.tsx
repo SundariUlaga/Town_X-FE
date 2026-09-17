@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Building2,
@@ -11,6 +11,7 @@ import {
   MessageSquarePlus,
   Bell,
   Megaphone,
+  Mail,
   Plus,
   Settings,
   UserRound,
@@ -20,11 +21,14 @@ import { TownExchangeBrand } from "@/components/brand/TownExchangeLogo";
 import NavbarLocationPicker from "@/components/shared/NavbarLocationPicker";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { useAuth, ROLE_HOME_ROUTE } from "@/context/AuthContext";
-import { useLogout } from "@/context/AuthDrawerContext";
+import { useAuthDrawer, useLogout } from "@/context/AuthDrawerContext";
 import { useSmartBack } from "@/lib/useSmartBack";
 import { cn } from "@/lib/utils";
 import { activeTabClass, inactiveTabClass } from "@/lib/tabStyles";
+import { WithTooltip } from "@/components/ui/WithTooltip";
 import type { UserRole } from "@/types/user";
+import { useFocusTrap } from "@/lib/useFocusTrap";
+import CreatePostModal from "@/components/CreatePostModal.jsx";
 
 function displayName(name: string) {
   const parts = name.trim().split(/\s+/);
@@ -85,31 +89,34 @@ function ProfileDropdown() {
 
   return (
     <div ref={rootRef} className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        className="inline-flex items-center gap-1.5 sm:gap-2 rounded-control px-1 py-1 sm:px-1.5 hover:bg-gray-100 transition-colors"
-        aria-expanded={open}
-        aria-haspopup="menu"
-      >
-        <span className="inline-flex size-7 sm:size-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[10px] sm:text-xs font-semibold text-gray-600">
-          {initials(user.name)}
-        </span>
-        <span className="hidden md:inline text-sm font-medium text-gray-700 truncate max-w-[7rem]">
-          {displayName(user.name)}
-        </span>
-        <ChevronDown
-          className={cn(
-            "size-4 text-gray-400 shrink-0 hidden md:block transition-transform",
-            open && "rotate-180"
-          )}
-        />
-      </button>
+      <WithTooltip label="Account menu">
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          className="inline-flex items-center gap-1.5 sm:gap-2 rounded-control px-1 py-1 sm:px-1.5 hover:bg-gray-100 transition-colors"
+          aria-expanded={open}
+          aria-haspopup="menu"
+          aria-label="Account menu"
+        >
+          <span className="inline-flex size-7 sm:size-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[10px] sm:text-xs font-semibold text-gray-600">
+            {initials(user.name)}
+          </span>
+          <span className="hidden md:inline text-sm font-medium text-gray-700 truncate max-w-[7rem]">
+            {displayName(user.name)}
+          </span>
+          <ChevronDown
+            className={cn(
+              "size-4 text-gray-400 shrink-0 hidden md:block transition-transform",
+              open && "rotate-180"
+            )}
+          />
+        </button>
+      </WithTooltip>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-[calc(100%+0.35rem)] z-50 min-w-[11rem] rounded-card border border-gray-200 bg-white py-1 shadow-soft-lg"
+          className="absolute right-0 top-[calc(100%+0.35rem)] z-50 min-w-[13.5rem] rounded-card border border-gray-200 bg-white py-1 shadow-soft-lg"
         >
           <div className="px-3 py-2 border-b border-gray-100 md:hidden">
             <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
@@ -130,6 +137,7 @@ function ProfileDropdown() {
               {label}
             </button>
           ))}
+
           <button
             type="button"
             role="menuitem"
@@ -151,14 +159,16 @@ function ProfileDropdown() {
 type AppMenuDrawerProps = {
   open: boolean;
   onClose: () => void;
+  onPostProperty?: () => void;
 };
 
-function AppMenuDrawer({ open, onClose }: AppMenuDrawerProps) {
+function AppMenuDrawer({ open, onClose, onPostProperty }: AppMenuDrawerProps) {
   const { user } = useAuth();
   const logoutToHome = useLogout();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const homeRoute = user ? ROLE_HOME_ROUTE[user.role as UserRole] : "/home";
+  const panelRef = useFocusTrap(open, onClose);
 
   useEffect(() => {
     if (!open) return;
@@ -182,13 +192,14 @@ function AppMenuDrawer({ open, onClose }: AppMenuDrawerProps) {
       return pathname.startsWith("/property-feed") || pathname.startsWith("/property/");
     }
     if (path === "/favourites") return pathname.startsWith("/favourites");
+    if (path === "/enquiries") return pathname.startsWith("/enquiries");
     if (path.startsWith("/account")) return pathname.startsWith("/account");
     return pathname.startsWith(path);
   };
 
   const linkClass = (path: string) =>
     cn(
-      "flex w-full items-center gap-3 rounded-t-control px-3 py-2.5 text-sm font-medium transition-all",
+      "flex w-full items-center gap-3 rounded-control px-3 py-2.5 text-sm font-medium transition-all",
       isActive(path) ? activeTabClass : inactiveTabClass
     );
 
@@ -200,9 +211,23 @@ function AppMenuDrawer({ open, onClose }: AppMenuDrawerProps) {
         aria-label="Close menu"
         onClick={onClose}
       />
-      <aside className="absolute right-0 top-0 flex h-full w-[min(100%,20rem)] flex-col bg-white shadow-soft-lg safe-top safe-bottom">
+      <aside
+        ref={panelRef as RefObject<HTMLElement>}
+        className="absolute right-0 top-0 flex h-full w-[min(100%,20rem)] flex-col bg-white shadow-soft-lg safe-top safe-bottom"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu"
+      >
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-          <p className="font-display text-lg font-semibold text-gray-900">Menu</p>
+          <div className="min-w-0">
+            <p className="font-display text-lg font-semibold text-gray-900">Menu</p>
+            {user ? (
+              <p className="truncate text-xs text-gray-500">
+                {user.name}
+                <span className="capitalize"> · {user.role}</span>
+              </p>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -214,24 +239,42 @@ function AppMenuDrawer({ open, onClose }: AppMenuDrawerProps) {
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+          <p className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+            Explore
+          </p>
           <button type="button" className={linkClass(homeRoute)} onClick={() => go(homeRoute)}>
             <Home className="size-4" />
             Home
           </button>
-          <button type="button" className={linkClass("/property-feed")} onClick={() => go("/property-feed")}>
+          <button
+            type="button"
+            className={linkClass("/property-feed")}
+            onClick={() => go("/property-feed")}
+          >
+            <Building2 className="size-4" />
             Browse listings
           </button>
           {user?.role === "buyer" && (
-            <button type="button" className={linkClass("/favourites")} onClick={() => go("/favourites")}>
+            <button
+              type="button"
+              className={linkClass("/favourites")}
+              onClick={() => go("/favourites")}
+            >
               <Heart className="size-4" />
               Favourites
             </button>
           )}
-          <button type="button" className={linkClass("/advertise/my")} onClick={() => go("/advertise/my")}>
-            <Megaphone className="size-4" />
-            Advertise
-          </button>
-          {user && user.role !== "buyer" && (
+          {user?.role === "buyer" && (
+            <button
+              type="button"
+              className={linkClass("/enquiries")}
+              onClick={() => go("/enquiries")}
+            >
+              <Mail className="size-4" />
+              My enquiries
+            </button>
+          )}
+          {user?.role === "owner" && (
             <button
               type="button"
               className={linkClass(ROLE_HOME_ROUTE[user.role as UserRole])}
@@ -241,14 +284,60 @@ function AppMenuDrawer({ open, onClose }: AppMenuDrawerProps) {
               Dashboard
             </button>
           )}
+          <button
+            type="button"
+            className={linkClass("/advertise/my")}
+            onClick={() => go("/advertise/my")}
+          >
+            <Megaphone className="size-4" />
+            Advertise
+          </button>
+
+          {onPostProperty ? (
+            <button
+              type="button"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-control bg-secondary-500 px-3 py-3 text-sm font-semibold text-white hover:bg-secondary-600"
+              onClick={() => {
+                onClose();
+                onPostProperty();
+              }}
+            >
+              <Plus className="size-4" />
+              Post free property
+            </button>
+          ) : null}
+
+          <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+            Account
+          </p>
           <Link to="/account/profile" className={linkClass("/account/profile")} onClick={onClose}>
             <UserRound className="size-4" />
-            My account
+            Profile
           </Link>
-          <button type="button" className={linkClass("/account/notifications")} onClick={() => go("/account/notifications")}>
+          <Link
+            to="/account/notifications"
+            className={linkClass("/account/notifications")}
+            onClick={onClose}
+          >
             <Bell className="size-4" />
             Notifications
-          </button>
+          </Link>
+          <Link
+            to="/account/questions"
+            className={linkClass("/account/questions")}
+            onClick={onClose}
+          >
+            <MessageSquarePlus className="size-4" />
+            Q&A
+          </Link>
+          <Link to="/account/settings" className={linkClass("/account/settings")} onClick={onClose}>
+            <Settings className="size-4" />
+            Settings
+          </Link>
+          <Link to="/account/faq" className={linkClass("/account/faq")} onClick={onClose}>
+            <CircleHelp className="size-4" />
+            FAQ
+          </Link>
         </nav>
 
         <div className="border-t border-gray-200 p-3">
@@ -273,6 +362,11 @@ type DesktopNavProps = {
   onPostProperty?: () => void;
 };
 
+/**
+ * Portal-style nav (99acres / NoBroker):
+ * Browse tools + always-on Advertise + Post free property CTA for everyone.
+ * Buyer extras (Favourites / Enquiries) and Owner Dashboard stay role-aware.
+ */
 function DesktopNavLinks({ onPostProperty }: DesktopNavProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -288,6 +382,9 @@ function DesktopNavLinks({ onPostProperty }: DesktopNavProps) {
     }
     if (path === "/favourites") {
       return pathname.startsWith("/favourites");
+    }
+    if (path === "/enquiries") {
+      return pathname.startsWith("/enquiries");
     }
     if (path === "/advertise/my") {
       return pathname.startsWith("/advertise");
@@ -322,14 +419,16 @@ function DesktopNavLinks({ onPostProperty }: DesktopNavProps) {
           Favourites
         </button>
       )}
-      <button
-        type="button"
-        className={linkClass("/advertise/my")}
-        onClick={() => navigate("/advertise/my")}
-      >
-        Advertise
-      </button>
-      {user && user.role !== "buyer" && (
+      {user?.role === "buyer" && (
+        <button
+          type="button"
+          className={linkClass("/enquiries")}
+          onClick={() => navigate("/enquiries")}
+        >
+          My enquiries
+        </button>
+      )}
+      {user?.role === "owner" && (
         <button
           type="button"
           className={linkClass(ROLE_HOME_ROUTE[user.role as UserRole])}
@@ -338,16 +437,24 @@ function DesktopNavLinks({ onPostProperty }: DesktopNavProps) {
           Dashboard
         </button>
       )}
-      {onPostProperty && (
+      <button
+        type="button"
+        className={linkClass("/advertise/my")}
+        onClick={() => navigate("/advertise/my")}
+      >
+        Advertise
+      </button>
+      {onPostProperty ? (
         <button
           type="button"
           onClick={onPostProperty}
-          className={cn("hidden md:inline-flex", postButtonClass)}
+          className={cn("hidden lg:inline-flex", postButtonClass)}
+          aria-label="Post free property"
         >
-          <Plus className="size-3.5" />
-          Post
+          <Plus className="size-3.5 shrink-0" />
+          Post free property
         </button>
-      )}
+      ) : null}
     </>
   );
 }
@@ -356,9 +463,15 @@ export type AppNavbarProps = {
   variant?: "home" | "inner";
   backTo?: string;
   backLabel?: string;
+  /**
+   * Location picker next to the logo. Default true — keep chrome consistent
+   * across browse/home/account surfaces. Page titles belong in the page body (h1),
+   * not beside the logo.
+   */
   showLocation?: boolean;
+  /** @deprecated Prefer page-level h1. Ignored for branding consistency. */
   logoTagline?: string;
-  maxWidth?: "6xl" | "7xl";
+  maxWidth?: "6xl" | "7xl" | "full";
   onPostProperty?: () => void;
   extraActions?: ReactNode;
 };
@@ -367,19 +480,37 @@ export function AppNavbar({
   variant = "home",
   backTo = "/home",
   backLabel = "Back",
-  showLocation = false,
-  logoTagline,
+  showLocation = true,
+  logoTagline: _logoTagline,
   maxWidth = "6xl",
   onPostProperty,
   extraActions,
 }: AppNavbarProps) {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const { openAuthDrawer } = useAuthDrawer();
   const navigate = useNavigate();
   const goBack = useSmartBack(backTo);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showPostModal, setShowPostModal] = useState(false);
   const homeRoute = user ? ROLE_HOME_ROUTE[user.role as UserRole] : "/home";
 
-  const maxWidthClass = maxWidth === "7xl" ? "max-w-7xl" : "max-w-6xl";
+  const maxWidthClass =
+    maxWidth === "full" ? "max-w-[90rem]" : maxWidth === "7xl" ? "max-w-7xl" : "max-w-6xl";
+
+  const openPostFlow = () => {
+    if (!isAuthenticated) {
+      openAuthDrawer("signup", {
+        defaultRole: "owner",
+        from: "/owner/dashboard",
+      });
+      return;
+    }
+    if (onPostProperty) {
+      onPostProperty();
+      return;
+    }
+    setShowPostModal(true);
+  };
 
   return (
     <>
@@ -388,21 +519,22 @@ export function AppNavbar({
           <div className="flex items-center justify-between gap-1.5 sm:gap-3 min-w-0">
             <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
               {variant === "inner" && (
-                <button
-                  type="button"
-                  onClick={goBack}
-                  className="inline-flex shrink-0 items-center justify-center p-1.5 sm:p-2 rounded-control hover:bg-gray-100 transition-colors"
-                  aria-label={backLabel}
-                >
-                  <ChevronLeft className="size-5 sm:size-6 text-gray-700" />
-                </button>
+                <WithTooltip label={backLabel}>
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    className="inline-flex shrink-0 items-center justify-center p-1.5 sm:p-2 rounded-control hover:bg-gray-100 transition-colors"
+                    aria-label={backLabel}
+                  >
+                    <ChevronLeft className="size-5 sm:size-6 text-gray-700" />
+                  </button>
+                </WithTooltip>
               )}
 
               <TownExchangeBrand
                 asButton
                 logoSize={variant === "home" ? 40 : 36}
-                showTagline={Boolean(logoTagline)}
-                tagline={logoTagline}
+                showTagline={false}
                 onClick={() => navigate(homeRoute)}
                 className="min-w-0"
               />
@@ -411,20 +543,26 @@ export function AppNavbar({
             </div>
 
             <div className="flex items-center gap-0.5 sm:gap-1 md:gap-1.5 shrink-0">
-              <DesktopNavLinks onPostProperty={onPostProperty} />
+              {/* Desktop / tablet nav — hidden on mobile (lives in drawer) */}
+              <DesktopNavLinks onPostProperty={openPostFlow} />
 
-              {onPostProperty && (
+              {/* Compact Post: tablet only (desktop has full label; mobile has drawer CTA) */}
+              <WithTooltip label="Post free property">
                 <button
                   type="button"
-                  onClick={onPostProperty}
-                  className={cn("md:hidden", postButtonCompactClass)}
+                  onClick={openPostFlow}
+                  className={cn("hidden md:inline-flex lg:hidden", postButtonCompactClass)}
+                  aria-label="Post free property"
                 >
-                  <Plus className="size-3.5" />
+                  <Plus className="size-3.5 shrink-0" />
                   Post
                 </button>
-              )}
+              </WithTooltip>
 
-              <ProfileDropdown />
+              {/* Profile dropdown: desktop/tablet only — mobile uses drawer account section */}
+              <div className="hidden md:block">
+                <ProfileDropdown />
+              </div>
 
               {extraActions}
 
@@ -432,10 +570,11 @@ export function AppNavbar({
 
               <NotificationBell />
 
+              {/* Mobile menu trigger */}
               <button
                 type="button"
                 onClick={() => setMenuOpen(true)}
-                className="md:hidden inline-flex shrink-0 items-center gap-1 rounded-control px-1 py-1.5 text-gray-700 hover:bg-gray-100 transition-colors border-l border-gray-200 pl-2 ml-0.5"
+                className="md:hidden inline-flex size-9 shrink-0 items-center justify-center rounded-control text-gray-700 hover:bg-gray-100 transition-colors"
                 aria-label="Open menu"
               >
                 <span className="flex flex-col gap-[3px] w-[16px]" aria-hidden>
@@ -443,7 +582,6 @@ export function AppNavbar({
                   <span className="block h-[2px] w-full rounded-full bg-gray-700" />
                   <span className="block h-[2px] w-full rounded-full bg-gray-700" />
                 </span>
-                <span className="text-sm font-medium">Menu</span>
               </button>
             </div>
           </div>
@@ -453,6 +591,18 @@ export function AppNavbar({
       <AppMenuDrawer
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
+        onPostProperty={openPostFlow}
+      />
+
+      <CreatePostModal
+        isOpen={showPostModal}
+        onClose={() => setShowPostModal(false)}
+        onSuccess={() => {
+          setShowPostModal(false);
+          if (user?.role === "owner") {
+            navigate("/owner/dashboard");
+          }
+        }}
       />
     </>
   );

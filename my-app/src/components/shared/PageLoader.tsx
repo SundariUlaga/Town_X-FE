@@ -1,7 +1,7 @@
 import TownLoader from "@/components/shared/TownLoader";
 
-export function PageLoader({ label = "Loading" }: { label?: string }) {
-  return <TownLoader size="lg" label={label} minHeight="50vh" />;
+export function PageLoader({ label = "Loading Town-X" }: { label?: string }) {
+  return <TownLoader size="lg" label={label} fullScreen />;
 }
 
 export default PageLoader;

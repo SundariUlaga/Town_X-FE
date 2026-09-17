@@ -3,29 +3,41 @@
 @import "tw-animate-css";
 
 @theme {
-  /* Sky blue — primary (maps to legacy brand-* utilities) */
-  --color-brand-50: #E6F4FD;
-  --color-brand-100: #BEE3FA;
-  --color-brand-200: #7CC5F5;
-  --color-brand-300: #38BDF8;
-  --color-brand-400: #0EA5E9;
-  --color-brand-500: #0EA5E9;
-  --color-brand-600: #0284C7;
-  --color-brand-700: #0369A1;
-  --color-brand-800: #075985;
-  --color-brand-900: #0C4A6E;
+  /* Clay / terracotta — primary brand (Town architecture, not corporate blue) */
+  --color-brand-50: #FDF4F0;
+  --color-brand-100: #F5D9CC;
+  --color-brand-200: #E8B09A;
+  --color-brand-300: #D9846A;
+  --color-brand-400: #C96A48;
+  --color-brand-500: #C1552C;
+  --color-brand-600: #A34624;
+  --color-brand-700: #85391D;
+  --color-brand-800: #672C17;
+  --color-brand-900: #4A1F10;
 
-  /* Terracotta — secondary */
-  --color-secondary-50: #FDEEE7;
-  --color-secondary-100: #FAD1BD;
-  --color-secondary-200: #F3A57C;
-  --color-secondary-300: #F5845E;
-  --color-secondary-400: #EA580C;
-  --color-secondary-500: #EA580C;
-  --color-secondary-600: #B4460C;
-  --color-secondary-700: #B4460C;
-  --color-secondary-800: #7C3009;
-  --color-secondary-900: #4A1D06;
+  /* CTA orange — reserved for primary action buttons only (Post, etc.) */
+  --color-secondary-50: #FFF7ED;
+  --color-secondary-100: #FFEDD5;
+  --color-secondary-200: #FED7AA;
+  --color-secondary-300: #FDBA74;
+  --color-secondary-400: #FB923C;
+  --color-secondary-500: #F97316;
+  --color-secondary-600: #EA580C;
+  --color-secondary-700: #C2410C;
+  --color-secondary-800: #9A3412;
+  --color-secondary-900: #7C2D12;
+
+  /* Trust teal — verified / RERA / owner-verified badges only */
+  --color-trust-50: #F0FDFA;
+  --color-trust-100: #CCFBF1;
+  --color-trust-200: #99F6E4;
+  --color-trust-300: #5EEAD4;
+  --color-trust-400: #2DD4BF;
+  --color-trust-500: #14B8A6;
+  --color-trust-600: #0F766E;
+  --color-trust-700: #0D5C56;
+  --color-trust-800: #115E59;
+  --color-trust-900: #134E4A;
 
   /* Accent yellow — fills/badges; use accent-yellow-text for readable text on light bg */
   --color-accent-yellow-50: #fefce8;
@@ -39,8 +51,8 @@
   --color-accent-yellow-text: #a16207;
 
   /* Semantic status (AA on white / light surfaces) */
-  --color-status-success: #15803d;
-  --color-status-success-bg: #dcfce7;
+  --color-status-success: #0F766E;
+  --color-status-success-bg: #CCFBF1;
   --color-status-warning: #b45309;
   --color-status-warning-bg: #fef3c7;
   --color-status-error: #b91c1c;
@@ -51,8 +63,8 @@
   --shadow-soft-sm: 0 1px 2px rgba(28, 28, 26, 0.05), 0 1px 1px rgba(28, 28, 26, 0.04);
   --shadow-soft-md: 0 4px 12px rgba(28, 28, 26, 0.07), 0 2px 4px rgba(28, 28, 26, 0.05);
   --shadow-soft-lg: 0 12px 32px rgba(28, 28, 26, 0.1), 0 4px 8px rgba(28, 28, 26, 0.06);
-  --shadow-brand-glow: 0 8px 28px rgba(14, 165, 233, 0.28);
-  --shadow-secondary-glow: 0 8px 28px rgba(234, 88, 12, 0.25);
+  --shadow-brand-glow: 0 8px 28px rgba(193, 85, 44, 0.28);
+  --shadow-secondary-glow: 0 8px 28px rgba(249, 115, 22, 0.28);
 
   --radius-card: 1rem;
   --radius-control: 0.625rem;
@@ -68,43 +80,44 @@
   --radius: 1.25rem;
 
   /* Raw palette tokens */
-  --sky-50: #E6F4FD;
-  --sky-100: #BEE3FA;
-  --sky-200: #7CC5F5;
-  --sky-400: #0EA5E9;
-  --sky-600: #0369A1;
-  --sky-800: #075985;
-  --sky-900: #0C4A6E;
+  --clay-50: #FDF4F0;
+  --clay-100: #F5D9CC;
+  --clay-200: #E8B09A;
+  --clay-400: #C96A48;
+  --clay-500: #C1552C;
+  --clay-600: #A34624;
+  --clay-800: #672C17;
+  --clay-900: #4A1F10;
 
-  --terra-50: #FDEEE7;
-  --terra-100: #FAD1BD;
-  --terra-200: #F3A57C;
-  --terra-400: #EA580C;
-  --terra-600: #B4460C;
-  --terra-800: #7C3009;
-  --terra-900: #4A1D06;
+  --cta-400: #FB923C;
+  --cta-500: #F97316;
+  --cta-600: #EA580C;
+
+  --trust-100: #CCFBF1;
+  --trust-600: #0F766E;
+  --trust-800: #115E59;
 
   /* Semantic roles */
-  --color-primary: var(--sky-400);
-  --color-primary-hover: var(--sky-600);
+  --color-primary: var(--clay-500);
+  --color-primary-hover: var(--clay-600);
   --color-primary-text: white;
 
-  --color-secondary: var(--terra-400);
-  --color-secondary-hover: var(--terra-600);
+  --color-secondary: var(--cta-500);
+  --color-secondary-hover: var(--cta-600);
   --color-secondary-text: white;
 
-  --bg-page: #FFFFFF;
-  --bg-surface: #FFFFFF;
-  --bg-primary-subtle: var(--sky-50);
-  --bg-secondary-subtle: var(--terra-50);
+  --bg-page: #F6F3EE;
+  --bg-surface: #FFFCFA;
+  --bg-primary-subtle: var(--clay-50);
+  --bg-secondary-subtle: #FFF7ED;
 
-  --border-default: #E2E2E0;
-  --border-primary: var(--sky-400);
-  --border-secondary: var(--terra-400);
+  --border-default: #E6E0D8;
+  --border-primary: var(--clay-400);
+  --border-secondary: var(--cta-500);
 
   --text-primary: #1C1C1A;
-  --text-on-primary-subtle: var(--sky-900);
-  --text-on-secondary-subtle: var(--terra-900);
+  --text-on-primary-subtle: var(--clay-900);
+  --text-on-secondary-subtle: #7C2D12;
 
   /* shadcn / app tokens */
   --background: var(--bg-page);
@@ -121,16 +134,16 @@
   --secondary: var(--bg-secondary-subtle);
   --secondary-foreground: var(--text-primary);
 
-  --muted: var(--bg-primary-subtle);
+  --muted: #EFEAE3;
   --muted-foreground: #5c5c58;
 
-  --accent: var(--sky-100);
-  --accent-foreground: var(--sky-900);
+  --accent: var(--clay-100);
+  --accent-foreground: var(--clay-900);
 
   --destructive: #b91c1c;
   --destructive-foreground: #ffffff;
 
-  --success: #15803d;
+  --success: var(--trust-600);
   --success-foreground: #ffffff;
   --warning: #b45309;
   --warning-foreground: #ffffff;
@@ -144,12 +157,12 @@
 [data-mode="dark"] {
   --bg-page: #17181A;
   --bg-surface: #1F2023;
-  --bg-primary-subtle: rgba(14, 165, 233, 0.14);
-  --bg-secondary-subtle: rgba(234, 88, 12, 0.14);
+  --bg-primary-subtle: rgba(193, 85, 44, 0.14);
+  --bg-secondary-subtle: rgba(249, 115, 22, 0.14);
   --border-default: rgba(255, 255, 255, 0.12);
   --text-primary: #F2F2F0;
-  --text-on-primary-subtle: var(--sky-200);
-  --text-on-secondary-subtle: var(--terra-200);
+  --text-on-primary-subtle: var(--clay-200);
+  --text-on-secondary-subtle: #FED7AA;
 
   --background: var(--bg-page);
   --foreground: var(--text-primary);
@@ -159,8 +172,8 @@
   --popover: var(--bg-surface);
   --popover-foreground: var(--text-primary);
 
-  --primary: var(--sky-200);
-  --primary-foreground: var(--sky-900);
+  --primary: var(--clay-200);
+  --primary-foreground: var(--clay-900);
 
   --secondary: var(--bg-secondary-subtle);
   --secondary-foreground: var(--text-primary);
@@ -168,20 +181,20 @@
   --muted: var(--bg-primary-subtle);
   --muted-foreground: #a8a8a4;
 
-  --accent: rgba(14, 165, 233, 0.22);
-  --accent-foreground: var(--sky-100);
+  --accent: rgba(193, 85, 44, 0.22);
+  --accent-foreground: var(--clay-100);
 
   --destructive: #f87171;
   --destructive-foreground: #1a0505;
 
-  --success: #4ade80;
+  --success: #2DD4BF;
   --success-foreground: #06251b;
   --warning: #facc15;
   --warning-foreground: #211c2b;
 
   --border: var(--border-default);
   --input: var(--border-default);
-  --ring: var(--sky-200);
+  --ring: var(--clay-200);
 }
 
 @theme inline {
@@ -233,6 +246,11 @@ body {
 
 .safe-top {
   padding-top: max(0px, env(safe-area-inset-top));
+}
+
+.safe-x {
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
 }
 
 .scrollbar-hide {

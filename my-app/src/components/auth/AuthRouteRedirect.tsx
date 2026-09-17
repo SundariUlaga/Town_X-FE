@@ -1,9 +1,11 @@
 import { useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
+import { getPostAuthRoute, KYC_ROUTE, useAuth } from "@/context/AuthContext";
 import { useAuthDrawer, type AuthDrawerMode } from "@/context/AuthDrawerContext";
 import TownLoader from "@/components/shared/TownLoader";
 import type { UserRole } from "@/types/user";
+import { redirectToAdminConsole } from "@/lib/adminApp";
 
 type AuthLocationState = {
   from?: string;
@@ -11,26 +13,73 @@ type AuthLocationState = {
   feedState?: unknown;
 };
 
-/** Opens the auth drawer then sends the user to the marketing page (legacy /login, /signup). */
+/**
+ * /login and /signup — guests get the auth drawer on the marketing page;
+ * authenticated users go to their dashboard.
+ *
+ * Do not keep a full-screen "Opening sign in" loader on /login — that used to
+ * stick forever after logout → ProtectedRoute → /login races.
+ */
 export function AuthRouteRedirect({ mode }: { mode: AuthDrawerMode }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const { openAuthDrawer } = useAuthDrawer();
 
   useEffect(() => {
+    if (isLoading) return;
+
     const state = location.state as AuthLocationState | null;
+    const fromQuery = params.get("from") || undefined;
+    const from = state?.from || fromQuery;
+
+    if (isAuthenticated && user) {
+      if (user.role === "admin") {
+        redirectToAdminConsole("/dashboard");
+        return;
+      }
+      const redirectTo = getPostAuthRoute(user, from);
+      navigate(redirectTo, {
+        replace: true,
+        state:
+          redirectTo === KYC_ROUTE
+            ? { from, feedState: state?.feedState }
+            : { feedState: state?.feedState },
+      });
+      return;
+    }
+
     openAuthDrawer(mode, {
-      from: state?.from,
+      from,
       defaultRole: state?.defaultRole,
       feedState: state?.feedState,
     });
+    // Land on marketing with drawer open — never park on /login loader.
     navigate("/", { replace: true });
-  }, [location.state, mode, navigate, openAuthDrawer]);
+  }, [
+    isAuthenticated,
+    isLoading,
+    location.state,
+    mode,
+    navigate,
+    openAuthDrawer,
+    params,
+    user,
+  ]);
 
-  return <TownLoader fullScreen size="md" label="Opening sign in" />;
+  if (isLoading) {
+    return <TownLoader fullScreen size="md" label="Checking session" />;
+  }
+
+  if (isAuthenticated) {
+    return <TownLoader fullScreen size="md" label="Opening your home" />;
+  }
+
+  return null;
 }
 
-/** When a protected route is hit while logged out, open login drawer on marketing page. */
+/** Protected route while logged out → open login drawer on marketing home. */
 export function AuthRequiredRedirect({
   from,
   feedState,
@@ -46,7 +95,7 @@ export function AuthRequiredRedirect({
     navigate("/", { replace: true });
   }, [from, feedState, navigate, openAuthDrawer]);
 
-  return <TownLoader fullScreen size="md" label="Redirecting" />;
+  return null;
 }
 
 export default AuthRouteRedirect;

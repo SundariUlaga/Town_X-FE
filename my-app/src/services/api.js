@@ -1,25 +1,47 @@
 import axios from 'axios';
+import { getToken, notifyUnauthorized } from '@/lib/authStorage';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
-// Base API URL - Update this to your backend URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8024';
+// Empty baseURL → relative /api via Vite proxy (cookie session works).
+const API_BASE_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 15_000,
+  withCredentials: true,
 });
 
-// Attach the stored session token, if any, to every request. Simplified
-// session model (see Town_X-BE/auth.py) — one long-lived token in
-// localStorage, no refresh rotation.
+// Attach cached Bearer when present (cookie is primary; Bearer helps tab sync / tools).
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('townx_token');
+  const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    if (status === 401) {
+      // Avoid clearing on auth bootstrap / OTP endpoints that legitimately 401.
+      const url = String(error.config?.url || '');
+      const isAuthProbe =
+        url.includes('/api/auth/me') ||
+        url.includes('/api/auth/send-otp') ||
+        url.includes('/api/auth/verify-otp') ||
+        url.includes('/api/auth/logout');
+      if (!isAuthProbe) {
+        notifyUnauthorized();
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Properties API
 export const propertyAPI = {
@@ -122,6 +144,16 @@ export const propertyAPI = {
     }
   },
 
+  getMarketInsights: async (params = {}) => {
+    const response = await api.get('/api/market/insights', { params });
+    return response.data;
+  },
+
+  getFeaturedProperties: async (params = {}) => {
+    const response = await api.get('/api/properties/featured', { params });
+    return response.data;
+  },
+
   // Get properties listed by the logged-in user (owner dashboard)
   getMyProperties: async (skip = 0, limit = 100) => {
     try {
@@ -144,6 +176,12 @@ export const propertyAPI = {
       console.error('Error toggling favourite:', error);
       throw error;
     }
+  },
+
+  /** Builder/owner self-service inventory — does not re-trigger property moderation. */
+  upsertProjectDetails: async (propertyId, payload) => {
+    const response = await api.post(`/api/properties/${propertyId}/project-details`, payload);
+    return response.data;
   },
 
   // Get all favourite properties

@@ -1,21 +1,31 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import axios from "axios";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { authAPI, type VerifyOtpPayload } from "@/services/authAPI";
 import type { User, UserRole } from "@/types/user";
-
-const TOKEN_KEY = "townx_token";
-const USER_KEY = "townx_user";
+import {
+  clearSession,
+  getStoredUser,
+  getToken,
+  pathOnly,
+  persistSession as writeSession,
+  persistUser,
+  setUnauthorizedHandler,
+  subscribeAuthBroadcast,
+} from "@/lib/authStorage";
 
 /** Where each role lands right after login/signup (KYC must be verified first). */
 export const ROLE_HOME_ROUTE: Record<UserRole, string> = {
   buyer: "/home",
   owner: "/owner/dashboard",
+  /** Marker only — admin is hard-redirected to the external console. */
   admin: "/admin/dashboard",
 };
 
 export const KYC_ROUTE = "/kyc";
+export const LOGIN_ROUTE = "/login";
 
 const NON_APP_RETURN_PATHS = new Set([
   "/",
@@ -30,9 +40,16 @@ const NON_APP_RETURN_PATHS = new Set([
 ]);
 
 export function getPostAuthRoute(user: User, from?: string): string {
+  if (user.role === "admin") return ROLE_HOME_ROUTE.admin;
   if (user.kyc_status !== "verified") return KYC_ROUTE;
+
   const trimmed = from?.trim();
-  if (trimmed && !NON_APP_RETURN_PATHS.has(trimmed)) {
+  const base = pathOnly(trimmed);
+  if (trimmed && base && !NON_APP_RETURN_PATHS.has(base)) {
+    // Landing / generic "buyer home" must not override owner destinations.
+    if (base === ROLE_HOME_ROUTE.buyer && user.role !== "buyer") {
+      return ROLE_HOME_ROUTE[user.role];
+    }
     return trimmed;
   }
   return ROLE_HOME_ROUTE[user.role];
@@ -40,8 +57,10 @@ export function getPostAuthRoute(user: User, from?: string): string {
 
 interface AuthContextValue {
   user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  sessionDegraded: boolean;
   verifyOtp: (payload: VerifyOtpPayload) => Promise<User>;
   logout: () => void;
   refreshUser: () => Promise<User | null>;
@@ -49,42 +68,75 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function readStoredUser(): User | null {
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    return raw ? (JSON.parse(raw) as User) : null;
-  } catch {
-    return null;
-  }
-}
-
+/**
+ * Session bootstrap matches:
+ * Open app → cookie/token? → GET /api/auth/me → valid → logged in; else guest.
+ * Close tab keeps HttpOnly cookie; reopen re-validates via /me.
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => readStoredUser());
+  const queryClient = useQueryClient();
+  const [user, setUser] = useState<User | null>(() => getStoredUser());
+  const [token, setToken] = useState<string | null>(() => getToken());
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionDegraded, setSessionDegraded] = useState(false);
+
+  const applyLoggedOut = () => {
+    clearSession({ sync: false });
+    setToken(null);
+    setUser(null);
+    setSessionDegraded(false);
+  };
+
+  const logout = () => {
+    void authAPI.logout();
+    clearSession({ sync: true });
+    setToken(null);
+    setUser(null);
+    setSessionDegraded(false);
+    queryClient.clear();
+  };
 
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
+    setUnauthorizedHandler(() => {
+      clearSession({ sync: true });
+      setToken(null);
+      setUser(null);
+      setSessionDegraded(false);
+      queryClient.clear();
+      if (!window.location.pathname.startsWith(LOGIN_ROUTE)) {
+        const returnTo = `${window.location.pathname}${window.location.search}`;
+        window.location.assign(
+          `${LOGIN_ROUTE}?from=${encodeURIComponent(returnTo)}`
+        );
+      }
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [queryClient]);
 
+  // Always validate session via /me (cookie and/or cached Bearer).
+  useEffect(() => {
     let cancelled = false;
 
     authAPI
       .me()
       .then((freshUser) => {
         if (cancelled) return;
+        const existing = getToken();
         setUser(freshUser);
-        localStorage.setItem(USER_KEY, JSON.stringify(freshUser));
+        setToken(existing);
+        persistUser(freshUser, { sync: false });
+        setSessionDegraded(false);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
         const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-        if (status === 401) {
-          localStorage.removeItem(TOKEN_KEY);
-          localStorage.removeItem(USER_KEY);
-          setUser(null);
+        if (status === 401 || status === 403) {
+          applyLoggedOut();
+        } else if (getToken() && getStoredUser()) {
+          // Network blip with cached session — keep UX, mark degraded.
+          setSessionDegraded(true);
+        } else {
+          applyLoggedOut();
         }
       })
       .finally(() => {
@@ -96,39 +148,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const persistSession = (accessToken: string, nextUser: User) => {
-    localStorage.setItem(TOKEN_KEY, accessToken);
-    localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
-    setUser(nextUser);
-  };
+  // Cross-tab: login/logout in Tab A updates Tab B without full reload.
+  useEffect(() => {
+    return subscribeAuthBroadcast((msg) => {
+      if (msg.type === "logout") {
+        setToken(null);
+        setUser(null);
+        setSessionDegraded(false);
+        queryClient.clear();
+        return;
+      }
+      if (msg.type === "login") {
+        setToken(msg.token);
+        setUser(msg.user);
+        setSessionDegraded(false);
+        return;
+      }
+      if (msg.type === "user") {
+        setUser(msg.user);
+      }
+    });
+  }, [queryClient]);
 
   const verifyOtp = async (payload: VerifyOtpPayload) => {
     const result = await authAPI.verifyOtp(payload);
-    persistSession(result.access_token, result.user);
+    writeSession(result.access_token, result.user, { sync: true });
+    setToken(result.access_token);
+    setUser(result.user);
+    setSessionDegraded(false);
     return result.user;
   };
 
-  const logout = () => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    setUser(null);
-  };
-
   const refreshUser = async () => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) {
-      setUser(null);
-      return null;
+    try {
+      const freshUser = await authAPI.me();
+      const existing = getToken();
+      persistUser(freshUser, { sync: true });
+      setUser(freshUser);
+      setToken(existing);
+      setSessionDegraded(false);
+      return freshUser;
+    } catch (error: unknown) {
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 401) {
+        logout();
+        return null;
+      }
+      setSessionDegraded(true);
+      throw error;
     }
-    const freshUser = await authAPI.me();
-    localStorage.setItem(USER_KEY, JSON.stringify(freshUser));
-    setUser(freshUser);
-    return freshUser;
   };
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isAuthenticated: !!user, isLoading, verifyOtp, logout, refreshUser }),
-    [user, isLoading]
+    () => ({
+      user,
+      token,
+      // Cookie-only sessions may have user without a localStorage token after /me.
+      isAuthenticated: Boolean(user),
+      isLoading,
+      sessionDegraded,
+      verifyOtp,
+      logout,
+      refreshUser,
+    }),
+    [user, token, isLoading, sessionDegraded]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

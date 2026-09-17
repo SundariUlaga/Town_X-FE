@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { requiredMark } from "@/lib/statusStyles";
+import { WithTooltip } from "@/components/ui/WithTooltip";
 
 const listVariants = {
   hidden: { opacity: 0, y: -6, scale: 0.98 },
@@ -117,18 +118,20 @@ export default function LocationSearchSelect({
           {loading && !displayValue ? "Loading..." : displayValue || placeholder}
         </span>
         {selectedOption && !disabled ? (
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={handleClear}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") handleClear(event);
-            }}
-            className="p-0.5 rounded-full hover:bg-gray-100 text-gray-400"
-            aria-label="Clear selection"
-          >
-            <X size={12} />
-          </span>
+          <WithTooltip label="Clear selection">
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={handleClear}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") handleClear(event);
+              }}
+              className="p-0.5 rounded-full hover:bg-gray-100 text-gray-400"
+              aria-label="Clear selection"
+            >
+              <X size={12} />
+            </span>
+          </WithTooltip>
         ) : null}
         <ChevronDown
           size={14}

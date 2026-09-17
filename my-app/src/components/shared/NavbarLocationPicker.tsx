@@ -10,11 +10,12 @@ import {
   type LocationSearchHit,
 } from "@/lib/locationUtils";
 import { cn } from "@/lib/utils";
+import { WithTooltip } from "@/components/ui/WithTooltip";
 
 const TYPE_LABELS: Record<string, string> = {
   district: "District",
   taluk: "Taluk",
-  village: "Village",
+  village: "Zone",
 };
 
 function locationKey(item: { type: string; id: number }) {
@@ -77,22 +78,29 @@ export default function NavbarLocationPicker() {
 
   return (
     <div ref={rootRef} className="relative hidden xs:block shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className="flex max-w-[120px] items-center gap-1 text-xs text-gray-500 transition-colors hover:text-gray-700 sm:max-w-[160px]"
-        aria-label="Select location"
-        aria-expanded={open}
-        title={selectedLocation?.label}
+      <WithTooltip
+        label={
+          selectedLocation?.label
+            ? `Location: ${selectedLocation.label}`
+            : "Choose your search location"
+        }
       >
-        <MapPin className="size-3 shrink-0" />
-        <span className="truncate font-medium">
-          {districtsLoading && !selectedLocation ? "Loading..." : selectedLocation?.name ?? "Location"}
-        </span>
-        <ChevronDown
-          className={cn("size-3 shrink-0 transition-transform", open && "rotate-180")}
-        />
-      </button>
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          className="flex max-w-[120px] items-center gap-1 text-xs text-gray-500 transition-colors hover:text-gray-700 sm:max-w-[160px]"
+          aria-label="Select location"
+          aria-expanded={open}
+        >
+          <MapPin className="size-3 shrink-0" />
+          <span className="truncate font-medium">
+            {districtsLoading && !selectedLocation ? "Loading..." : selectedLocation?.name ?? "Location"}
+          </span>
+          <ChevronDown
+            className={cn("size-3 shrink-0 transition-transform", open && "rotate-180")}
+          />
+        </button>
+      </WithTooltip>
 
       <AnimatePresence>
         {open ? (

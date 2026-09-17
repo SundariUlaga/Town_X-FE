@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Home, Building2, ShieldCheck } from "lucide-react";
+import { Home, Building2 } from "lucide-react";
 import { motion } from "motion/react";
 
 import { useAuth } from "@/context/AuthContext";
@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/apiErrors";
 import type { User, UserRole } from "@/types/user";
+import { coercePublicRole, type PublicUserRole } from "@/lib/roles";
+import { ADMIN_APP_URL } from "@/lib/adminApp";
 
 const phoneSchema = z.object({
   phone: z
@@ -23,14 +25,48 @@ const phoneSchema = z.object({
 });
 
 const ROLE_OPTIONS: {
-  value: UserRole;
+  value: PublicUserRole;
   label: string;
+  hint: string;
   icon: typeof Home;
 }[] = [
-  { value: "buyer", label: "Buyer / Renter", icon: Home },
-  { value: "owner", label: "Owner", icon: Building2 },
-  { value: "admin", label: "Admin", icon: ShieldCheck },
+  { value: "buyer", label: "Buyer / Renter", hint: "Find a home", icon: Home },
+  { value: "owner", label: "Owner", hint: "List a property", icon: Building2 },
 ];
+
+function RolePicker({
+  value,
+  onChange,
+}: {
+  value: PublicUserRole;
+  onChange: (role: PublicUserRole) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {ROLE_OPTIONS.map((option) => {
+        const Icon = option.icon;
+        const selected = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "flex flex-col items-center gap-1 rounded-control border-2 p-3 text-center transition-colors",
+              selected
+                ? "border-primary bg-brand-50 text-primary"
+                : "border-border text-muted-foreground hover:border-gray-300"
+            )}
+          >
+            <Icon className="size-4" />
+            <span className="text-[11px] font-medium leading-tight">{option.label}</span>
+            <span className="text-[10px] font-normal text-muted-foreground">{option.hint}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 type PhoneValues = z.infer<typeof phoneSchema>;
 
@@ -54,7 +90,7 @@ function buildOtpSchema(requireProfile: boolean) {
     name: requireProfile
       ? z.string().trim().min(2, "Enter your full name")
       : z.string().optional(),
-    role: z.enum(["buyer", "owner", "admin"]).optional(),
+    role: z.enum(["buyer", "owner"]).optional(),
   });
 }
 
@@ -62,12 +98,13 @@ type OtpValues = z.infer<ReturnType<typeof buildOtpSchema>>;
 
 export function OtpAuthForm({
   mode,
-  defaultRole = "buyer",
+  defaultRole: defaultRoleProp = "buyer",
   open = true,
   onSuccess,
   onSwitchMode,
 }: OtpAuthFormProps) {
   const { verifyOtp } = useAuth();
+  const defaultRole = coercePublicRole(defaultRoleProp);
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phone, setPhone] = useState("");
   const [isExistingUser, setIsExistingUser] = useState<boolean | null>(null);
@@ -111,11 +148,12 @@ export function OtpAuthForm({
         phoneForm.setError("phone", { message: "Enter a valid 10-digit mobile number" });
         return;
       }
+      const selectedRole = coercePublicRole(otpForm.getValues("role") ?? defaultRole);
       const result = await authAPI.sendOtp(normalized);
       setPhone(normalized);
       setIsExistingUser(result.is_existing_user);
       setStep("otp");
-      otpForm.reset({ otp: "", name: "", role: defaultRole });
+      otpForm.reset({ otp: "", name: "", role: selectedRole });
       requestAnimationFrame(() => {
         document.getElementById("drawer-otp")?.focus();
       });
@@ -135,7 +173,7 @@ export function OtpAuthForm({
         ...(!isExistingUser
           ? {
               name: values.name?.trim(),
-              role: values.role ?? defaultRole,
+              role: coercePublicRole(values.role ?? defaultRole),
             }
           : {}),
       });
@@ -157,6 +195,24 @@ export function OtpAuthForm({
         className="space-y-4"
         noValidate
       >
+        {mode === "signup" ? (
+          <div className="space-y-1.5">
+            <Label>I am a...</Label>
+            <RolePicker
+              value={(otpForm.watch("role") as PublicUserRole) || defaultRole}
+              onChange={(role) => otpForm.setValue("role", role)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              You will be registered as a {(otpForm.watch("role") || defaultRole) === "owner" ? "property owner" : "buyer / renter"}.
+              Staff use the{" "}
+              <a href={ADMIN_APP_URL} className="font-medium text-primary hover:underline">
+                Admin Console
+              </a>
+              .
+            </p>
+          </div>
+        ) : null}
+
         <div className="space-y-1.5">
           <Label htmlFor="drawer-phone">Mobile number</Label>
           <Input
@@ -192,6 +248,14 @@ export function OtpAuthForm({
             </button>
           </p>
         )}
+        {mode === "login" ? (
+          <p className="text-center text-[11px] text-muted-foreground">
+            Admin staff?{" "}
+            <a href={ADMIN_APP_URL} className="font-medium text-primary hover:underline">
+              Open Admin Console
+            </a>
+          </p>
+        ) : null}
       </motion.form>
     );
   }
@@ -249,28 +313,10 @@ export function OtpAuthForm({
               control={otpForm.control}
               name="role"
               render={({ field }) => (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {ROLE_OPTIONS.map((option) => {
-                    const Icon = option.icon;
-                    const selected = field.value === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => field.onChange(option.value)}
-                        className={cn(
-                          "flex flex-col items-center gap-1 rounded-control border-2 p-2.5 text-center transition-colors",
-                          selected
-                            ? "border-primary bg-brand-50 text-primary"
-                            : "border-border text-muted-foreground hover:border-gray-300"
-                        )}
-                      >
-                        <Icon className="size-4" />
-                        <span className="text-[11px] font-medium leading-tight">{option.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <RolePicker
+                  value={coercePublicRole(field.value)}
+                  onChange={(role) => field.onChange(role)}
+                />
               )}
             />
           </div>

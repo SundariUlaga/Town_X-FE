@@ -5,6 +5,26 @@ export interface PropertyImage {
   thumbnail_url?: string | null;
 }
 
+export interface ProjectDetails {
+  id: number;
+  property_id: number;
+  rera_id?: string | null;
+  builder_name?: string | null;
+  builder_logo_url?: string | null;
+  possession_date?: string | null;
+  launch_date?: string | null;
+  total_units?: number | null;
+  available_units?: number | null;
+  project_status?: string | null;
+  total_towers?: number | null;
+  total_floors?: number | null;
+  price_starting_from?: number | null;
+  price_per_sqft_range_min?: number | null;
+  price_per_sqft_range_max?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Property {
   id: number;
   property_for: string;
@@ -27,6 +47,10 @@ export interface Property {
   parking: number;
   bathrooms: number;
   balconies: number;
+  commercial_subtype?: string | null;
+  frontage_ft?: number | null;
+  floor_number?: number | null;
+  washroom_count?: number | null;
   expected_price: number;
   maintenance_charges?: number | null;
   security_deposit?: number | null;
@@ -41,6 +65,8 @@ export interface Property {
   verification_tier?: string;
   survey_parcel_number?: string | null;
   encumbrance_certificate_status?: string | null;
+  /** Present only for New Projects (1:1 ProjectDetails row). */
+  project_details?: ProjectDetails | null;
   created_at: string;
   updated_at: string;
 }
@@ -56,12 +82,8 @@ export interface PropertyReviewNote {
 }
 
 /**
- * Enrichment fields Town Exchange doesn't compute or store yet — no
- * verification workflow, no builder/possession data entry, no geo-POI
- * provider, no market/yield model exists in the backend today. Deliberately
- * optional and NEVER defaulted to a fake value inside PropertyCard — a
- * badge/score/distance only renders when a real value is actually supplied.
- * This is the seam where that future backend work plugs in.
+ * Optional UI-only enrichment — scores/distances not stored in Property today.
+ * Prefer `property.project_details` for builder/RERA/possession/units.
  */
 export interface PropertyEnrichment {
   isVerified?: boolean;

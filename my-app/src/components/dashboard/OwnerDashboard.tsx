@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, IndianRupee, Mail, Plus, Trash2, Pencil } from "lucide-react";
 
@@ -10,6 +10,8 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Pagination } from "@/components/ui/pagination";
+import { useClientPagination } from "@/hooks/useClientPagination";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +23,7 @@ import {
 import { formatInr } from "@/lib/finance";
 import { activeTabClass, inactiveTabClass } from "@/lib/tabStyles";
 import CreatePostModal from "@/components/CreatePostModal.jsx";
+import { WithTooltip } from "@/components/ui/WithTooltip";
 import type { Property } from "@/types/property";
 
 const STATUS_TABS = [
@@ -53,12 +56,25 @@ function statusBadgeClass(status?: string) {
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editProperty, setEditProperty] = useState<Property | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [dashboardTab, setDashboardTab] = useState("listings");
+
+  const openCreateModal = () => {
+    setEditProperty(null);
+    setShowCreateModal(true);
+  };
+
+  useEffect(() => {
+    if ((location.state as { openPost?: boolean } | null)?.openPost) {
+      openCreateModal();
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   const { data: properties = [], isLoading } = useQuery({
     queryKey: ["my-properties"],
@@ -84,6 +100,22 @@ export default function OwnerDashboard() {
     return properties.filter((p: Property) => p.status === statusFilter);
   }, [properties, statusFilter]);
 
+  const listingsPage = useClientPagination(filteredProperties, 9);
+  const enquiriesList = useMemo(
+    () =>
+      (enquiriesQuery.data || []) as Array<{
+        id: number;
+        property_id: number;
+        message: string;
+        status: string;
+        created_at: string;
+        property_title?: string;
+        buyer_name?: string;
+      }>,
+    [enquiriesQuery.data]
+  );
+  const enquiriesPage = useClientPagination(enquiriesList, 8);
+
   const totalValue = properties.reduce((sum: number, p: Property) => sum + (p.expected_price || 0), 0);
   const forRentCount = properties.filter((p: Property) => p.property_for === "Rent/Lease").length;
 
@@ -101,15 +133,11 @@ export default function OwnerDashboard() {
     <DashboardShell
       title="Your listings"
       subtitle="Manage properties and buyer enquiries"
+      onPostProperty={openCreateModal}
       actions={
-        <Button
-          onClick={() => {
-            setEditProperty(null);
-            setShowCreateModal(true);
-          }}
-        >
+        <Button onClick={openCreateModal}>
           <Plus className="size-4" />
-          Add property
+          Post your property
         </Button>
       }
     >
@@ -132,7 +160,7 @@ export default function OwnerDashboard() {
             <TownLoader size="md" label="Loading enquiries" minHeight="30vh" />
           ) : enquiriesQuery.isError ? (
             <Card className="p-8 text-center text-sm text-destructive">Could not load enquiries.</Card>
-          ) : (enquiriesQuery.data || []).length === 0 ? (
+          ) : enquiriesList.length === 0 ? (
             <Card className="p-10 text-center">
               <Mail className="mx-auto mb-3 size-10 text-muted-foreground" />
               <p className="font-medium text-foreground">No enquiries yet</p>
@@ -140,20 +168,53 @@ export default function OwnerDashboard() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {(enquiriesQuery.data || []).map((enquiry: { id: number; property_id: number; message: string; status: string; created_at: string }) => (
+              {enquiriesPage.pageItems.map((enquiry) => {
+                const listing = properties.find((p) => p.id === enquiry.property_id);
+                const title =
+                  enquiry.property_title ||
+                  (listing
+                    ? `${listing.bhk_type} ${listing.apartment_type}${listing.apartment_name ? ` in ${listing.apartment_name}` : ""}`
+                    : `Property #${enquiry.property_id}`);
+                const thumb = listing?.images?.[0]?.url;
+                return (
                 <Card key={enquiry.id} className="p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">Property #{enquiry.property_id}</p>
-                      <p className="mt-2 text-sm text-muted-foreground">{enquiry.message}</p>
+                  <div className="flex flex-wrap items-start gap-3">
+                    {thumb ? (
+                      <img src={thumb} alt="" className="size-14 rounded-control object-cover shrink-0" />
+                    ) : (
+                      <div className="size-14 rounded-control bg-muted shrink-0" />
+                    )}
+                    <div className="min-w-0 flex-1 flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <button
+                          type="button"
+                          className="text-sm font-semibold text-brand-600 hover:underline text-left"
+                          onClick={() => navigate(`/property/${enquiry.property_id}`)}
+                        >
+                          {title}
+                        </button>
+                        {enquiry.buyer_name ? (
+                          <p className="mt-0.5 text-xs text-muted-foreground">From {enquiry.buyer_name}</p>
+                        ) : null}
+                        <p className="mt-2 text-sm text-muted-foreground break-words">{enquiry.message}</p>
+                      </div>
+                      <Badge className={enquiry.status === "NEW" ? "bg-brand-100 text-brand-800" : "bg-slate-100 text-slate-700"}>
+                        {enquiry.status}
+                      </Badge>
                     </div>
-                    <Badge className={enquiry.status === "NEW" ? "bg-brand-100 text-brand-800" : "bg-slate-100 text-slate-700"}>
-                      {enquiry.status}
-                    </Badge>
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">{new Date(enquiry.created_at).toLocaleString("en-IN")}</p>
                 </Card>
-              ))}
+                );
+              })}
+              <Pagination
+                page={enquiriesPage.page}
+                pageCount={enquiriesPage.pageCount}
+                onPageChange={enquiriesPage.setPage}
+                totalItems={enquiriesPage.totalItems}
+                pageSize={enquiriesPage.pageSize}
+                className="pt-2"
+              />
             </div>
           )}
         </div>
@@ -192,13 +253,14 @@ export default function OwnerDashboard() {
               {properties.length === 0 ? (
                 <Button className="mt-4" onClick={() => setShowCreateModal(true)}>
                   <Plus className="size-4" />
-                  Add property
+                  Post your property
                 </Button>
               ) : null}
             </Card>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredProperties.map((property: Property) => (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {listingsPage.pageItems.map((property: Property) => (
                 <Card key={property.id} className="overflow-hidden">
                   <div className="h-36 bg-secondary">
                     {property.images?.[0]?.url && (
@@ -235,18 +297,29 @@ export default function OwnerDashboard() {
                           Edit & resubmit
                         </Button>
                       ) : null}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-destructive border-destructive/40 hover:bg-destructive/10"
-                        onClick={() => setPendingDeleteId(property.id)}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
+                      <WithTooltip label="Delete listing">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                          onClick={() => setPendingDeleteId(property.id)}
+                          aria-label="Delete listing"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </WithTooltip>
                     </div>
                   </div>
                 </Card>
-              ))}
+                ))}
+              </div>
+              <Pagination
+                page={listingsPage.page}
+                pageCount={listingsPage.pageCount}
+                onPageChange={listingsPage.setPage}
+                totalItems={listingsPage.totalItems}
+                pageSize={listingsPage.pageSize}
+              />
             </div>
           )}
         </>

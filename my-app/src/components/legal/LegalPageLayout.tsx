@@ -1,11 +1,38 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Users2 } from "lucide-react";
 
 import { TownExchangeLogo, APP_NAME, APP_LOCATION } from "@/components/brand/TownExchangeLogo";
-import { FooterLinks } from "@/components/legal/FooterLinks";
+import { FooterLinks, LEGAL_ROUTES } from "@/components/legal/FooterLinks";
+import { getPostAuthRoute, useAuth } from "@/context/AuthContext";
 
 const STACK_RACK_TAG = "A Stack Rack product";
+const LEGAL_PATHS = new Set<string>(Object.values(LEGAL_ROUTES));
+
+function useLegalReturnPath(): { path: string; label: string } {
+  const { user } = useAuth();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from?.trim();
+
+  if (from && !LEGAL_PATHS.has(from)) {
+    const label =
+      from.includes("dashboard") || from.startsWith("/owner") || from.startsWith("/admin")
+        ? "Back to dashboard"
+        : from.startsWith("/account")
+          ? "Back to account"
+          : "Back to app";
+    return { path: from, label };
+  }
+
+  if (user) {
+    const path = getPostAuthRoute(user);
+    const label =
+      user.role === "owner" || user.role === "admin" ? "Back to dashboard" : "Back to home";
+    return { path, label };
+  }
+
+  return { path: "/", label: "Back to home" };
+}
 
 export function LegalPageLayout({
   title,
@@ -18,23 +45,33 @@ export function LegalPageLayout({
   lastUpdated?: string;
   children: ReactNode;
 }) {
+  const navigate = useNavigate();
+  const { path: returnPath, label: backLabel } = useLegalReturnPath();
+
+  const goBack = () => {
+    navigate(returnPath, { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur-xl safe-top">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3">
-          <Link
-            to="/"
+          <button
+            type="button"
+            onClick={goBack}
             className="flex min-w-0 items-center gap-2.5 hover:opacity-85 transition-opacity"
+            aria-label={backLabel}
           >
             <TownExchangeLogo size={36} variant="full" />
-          </Link>
-          <Link
-            to="/"
+          </button>
+          <button
+            type="button"
+            onClick={goBack}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-control px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
           >
             <ArrowLeft className="size-3.5" />
-            Back to home
-          </Link>
+            {backLabel}
+          </button>
         </div>
       </header>
 
@@ -64,9 +101,14 @@ export function LegalPageLayout({
       <footer className="border-t border-gray-200 bg-white/80">
         <div className="mx-auto max-w-4xl px-4 py-8">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-            <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={goBack}
+              className="flex items-center gap-2.5 hover:opacity-85 transition-opacity"
+              aria-label={backLabel}
+            >
               <TownExchangeLogo size={32} variant="full" />
-            </div>
+            </button>
             <FooterLinks />
           </div>
           <div className="mt-6 flex items-center justify-center gap-1.5 border-t border-gray-200 pt-6 text-xs text-gray-500">

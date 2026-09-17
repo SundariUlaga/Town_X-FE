@@ -155,7 +155,11 @@ export default function SettingsPage() {
                 privacy@townexchange.in
               </a>{" "}
               from your registered address. See our{" "}
-              <Link to={LEGAL_ROUTES.privacy} className="font-medium text-brand-600 hover:underline">
+              <Link
+                to={LEGAL_ROUTES.privacy}
+                state={{ from: "/account/settings" }}
+                className="font-medium text-brand-600 hover:underline"
+              >
                 Privacy Policy
               </Link>
               .

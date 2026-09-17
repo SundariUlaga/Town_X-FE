@@ -1,7 +1,7 @@
 import axios from 'axios';
+import { getApiBaseUrl } from '@/lib/apiBase';
 
-// API Base URL - can be configured via environment variable
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8024';
+const API_BASE_URL = getApiBaseUrl();
 
 /**
  * Configuration API Service
@@ -18,7 +18,8 @@ export const configAPI = {
         headers: {
           'Content-Type': 'application/json',
         },
-        timeout: 10000, // 10 second timeout
+        timeout: 10000,
+        withCredentials: true,
       });
       return response.data;
     } catch (error) {
@@ -55,7 +56,8 @@ export const configAPI = {
           headers: {
             'Content-Type': 'application/json',
           },
-          timeout: 15000, // 15 second timeout for updates
+          timeout: 15000,
+          withCredentials: true,
         }
       );
       return response.data;

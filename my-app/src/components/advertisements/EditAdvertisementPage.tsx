@@ -80,6 +80,9 @@ export default function EditAdvertisementPage() {
                   value={value}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Markdown supported — shown formatted in admin review and public surfaces.
+                </p>
               </div>
             ) : (
               <div key={key} className="space-y-1.5">

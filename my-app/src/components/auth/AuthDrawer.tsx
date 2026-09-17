@@ -9,6 +9,9 @@ import type { User } from "@/types/user";
 import { useAuthDrawer } from "@/context/AuthDrawerContext";
 import { TownExchangeLogo, APP_NAME } from "@/components/brand/TownExchangeLogo";
 import { OtpAuthForm } from "@/components/auth/OtpAuthForm";
+import { coercePublicRole } from "@/lib/roles";
+import { redirectToAdminConsole } from "@/lib/adminApp";
+import { WithTooltip } from "@/components/ui/WithTooltip";
 
 const sidePanelVariants = {
   hidden: { x: "100%" },
@@ -61,8 +64,13 @@ export function AuthDrawer() {
   const handleAuthSuccess = useCallback(
     (user: User) => {
       closeAuthDrawer();
+      if (user.role === "admin") {
+        redirectToAdminConsole("/dashboard");
+        return;
+      }
+      // Prefer deep-link `from` when present; otherwise role home / KYC.
+      const redirectTo = getPostAuthRoute(user, options.from);
       const intended = options.from ?? ROLE_HOME_ROUTE[user.role];
-      const redirectTo = getPostAuthRoute(user, intended);
       navigate(redirectTo, {
         replace: true,
         state:
@@ -130,16 +138,18 @@ export function AuthDrawer() {
               <div className="flex min-w-0 items-center gap-2.5">
                 <TownExchangeLogo size={36} variant="full" />
               </div>
-              <motion.button
-                type="button"
-                whileHover={instant ? undefined : { scale: 1.05 }}
-                whileTap={instant ? undefined : { scale: 0.95 }}
-                onClick={closeAuthDrawer}
-                className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                aria-label="Close"
-              >
-                <X className="size-5" />
-              </motion.button>
+              <WithTooltip label="Close">
+                <motion.button
+                  type="button"
+                  whileHover={instant ? undefined : { scale: 1.05 }}
+                  whileTap={instant ? undefined : { scale: 0.95 }}
+                  onClick={closeAuthDrawer}
+                  className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="size-5" />
+                </motion.button>
+              </WithTooltip>
             </div>
 
             <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-5 py-5 sm:py-6">
@@ -165,7 +175,7 @@ export function AuthDrawer() {
                       key={mode}
                       mode={mode}
                       open={isOpen}
-                      defaultRole={options.defaultRole ?? "buyer"}
+                      defaultRole={coercePublicRole(options.defaultRole)}
                       onSuccess={handleAuthSuccess}
                       onSwitchMode={() => setMode(mode === "login" ? "signup" : "login")}
                     />

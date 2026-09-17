@@ -12,6 +12,7 @@ import { formatNotificationTime, getNotificationPath } from "@/lib/notificationU
 import { cn } from "@/lib/utils";
 import TownLoader from "@/components/shared/TownLoader";
 import { Button } from "@/components/ui/button";
+import { WithTooltip } from "@/components/ui/WithTooltip";
 import type { AppNotification } from "@/types/notification";
 import { useQueryClient } from "@tanstack/react-query";
 import { notificationQueryKeys } from "@/hooks/useNotifications";
@@ -140,14 +141,16 @@ export default function NotificationsPage() {
                       .join(" · ") || "Any criteria"}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteSearch(search.id)}
-                  className="shrink-0 rounded-control p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                  aria-label={`Remove alert for ${search.label}`}
-                >
-                  <Trash2 className="size-4" />
-                </button>
+                <WithTooltip label={`Remove alert for ${search.label}`}>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSearch(search.id)}
+                    className="shrink-0 rounded-control p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                    aria-label={`Remove alert for ${search.label}`}
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </WithTooltip>
               </li>
             ))}
           </ul>

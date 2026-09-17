@@ -20,6 +20,7 @@ import {
 import { formatNotificationTime, getNotificationPath } from "@/lib/notificationUtils";
 import { cn } from "@/lib/utils";
 import TownLoader from "@/components/shared/TownLoader";
+import { WithTooltip } from "@/components/ui/WithTooltip";
 import type { AppNotification, NotificationType } from "@/types/notification";
 
 const TYPE_META: Record<
@@ -110,15 +111,16 @@ export function NotificationBell() {
 
   if (!canUse) {
     return (
-      <button
-        type="button"
-        className="inline-flex shrink-0 items-center justify-center p-1.5 sm:p-2 text-gray-400 rounded-control"
-        aria-label="Notifications"
-        title="Log in and verify to get alerts"
-        disabled
-      >
-        <Bell className="size-[18px] sm:size-5" strokeWidth={1.75} />
-      </button>
+      <WithTooltip label="Verify your account to get alerts">
+        <button
+          type="button"
+          className="inline-flex shrink-0 items-center justify-center p-1.5 sm:p-2 text-gray-400 rounded-control"
+          aria-label="Notifications"
+          disabled
+        >
+          <Bell className="size-[18px] sm:size-5" strokeWidth={1.75} />
+        </button>
+      </WithTooltip>
     );
   }
 
@@ -134,24 +136,32 @@ export function NotificationBell() {
 
   return (
     <div ref={rootRef} className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => {
-          setOpen((value) => !value);
-          if (!open) refetch();
-        }}
-        className="relative inline-flex shrink-0 items-center justify-center p-1.5 sm:p-2 text-gray-600 hover:bg-gray-100 rounded-control transition-colors"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+      <WithTooltip
+        label={
+          unreadCount > 0
+            ? `Notifications · ${unreadCount} unread`
+            : "Notifications"
+        }
       >
-        <Bell className="size-[18px] sm:size-5" strokeWidth={1.75} />
-        {unreadCount > 0 ? (
-          <span className="absolute right-0.5 top-0.5 flex min-w-[16px] h-4 items-center justify-center rounded-full bg-secondary-500 px-1 text-[10px] font-bold text-white">
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
-        ) : null}
-      </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen((value) => !value);
+            if (!open) refetch();
+          }}
+          className="relative inline-flex shrink-0 items-center justify-center p-1.5 sm:p-2 text-gray-600 hover:bg-gray-100 rounded-control transition-colors"
+          aria-expanded={open}
+          aria-haspopup="menu"
+          aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+        >
+          <Bell className="size-[18px] sm:size-5" strokeWidth={1.75} />
+          {unreadCount > 0 ? (
+            <span className="absolute right-0.5 top-0.5 flex min-w-[16px] h-4 items-center justify-center rounded-full bg-secondary-500 px-1 text-[10px] font-bold text-white">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          ) : null}
+        </button>
+      </WithTooltip>
 
       {open ? (
         <div

@@ -1,10 +1,9 @@
 import { useEffect } from "react";
-
-const ADMIN_APP_URL = import.meta.env.VITE_ADMIN_APP_URL || "http://localhost:5190";
+import { redirectToAdminConsole } from "@/lib/adminApp";
 
 export default function AdminAppRedirect({ path = "/dashboard" }) {
   useEffect(() => {
-    window.location.replace(`${ADMIN_APP_URL}${path}`);
+    redirectToAdminConsole(path);
   }, [path]);
 
   return (

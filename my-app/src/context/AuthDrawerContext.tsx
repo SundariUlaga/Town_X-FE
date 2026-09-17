@@ -7,10 +7,12 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/context/AuthContext";
 import { AuthDrawer } from "@/components/auth/AuthDrawer";
 import type { UserRole } from "@/types/user";
+import { markPostLogoutRedirect } from "@/lib/authStorage";
 
 export type AuthDrawerMode = "login" | "signup";
 
@@ -83,11 +85,14 @@ export function useAuthDrawer(): AuthDrawerContextValue {
 export function useLogout() {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const { closeAuthDrawer } = useAuthDrawer();
+  const queryClient = useQueryClient();
+  const { closeAuthDrawer, isOpen } = useAuthDrawer();
 
   return useCallback(() => {
+    markPostLogoutRedirect();
+    if (isOpen) closeAuthDrawer();
     logout();
-    closeAuthDrawer();
+    queryClient.clear();
     navigate("/", { replace: true });
-  }, [logout, closeAuthDrawer, navigate]);
+  }, [logout, queryClient, closeAuthDrawer, isOpen, navigate]);
 }

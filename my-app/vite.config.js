@@ -18,5 +18,12 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5188,
     strictPort: true,
+    proxy: {
+      // Same-origin /api so HttpOnly townx_session cookie is sent automatically.
+      "/api": {
+        target: "http://127.0.0.1:8024",
+        changeOrigin: true,
+      },
+    },
   },
 });

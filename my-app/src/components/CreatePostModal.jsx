@@ -4,9 +4,13 @@ import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { propertyAPI } from "../services/api";
 import { LocationPicker } from "./shared/LocationPicker";
 import { useLocationContext } from "../context/LocationContext";
+import { useAuth } from "@/context/AuthContext";
 import { useFocusTrap } from "@/lib/useFocusTrap";
 import { requiredMark } from "@/lib/statusStyles";
 import { clearPostDraft, loadPostDraft, savePostDraft } from "@/lib/postDraft";
+import { WithTooltip } from "@/components/ui/WithTooltip";
+import { useToast } from "@/components/ui/toast";
+import TownLoader from "@/components/shared/TownLoader";
 
 const backdropVariants = {
   hidden: { opacity: 0 },
@@ -39,6 +43,8 @@ function OptionButton({ selected, onClick, small = false, children }) {
 
 export default function CreatePostModal({ isOpen, onClose, onSuccess, editProperty = null }) {
   const shouldReduceMotion = useReducedMotion();
+  const { toast } = useToast();
+  const { user } = useAuth();
   const { selectedLocation: navbarLocation } = useLocationContext();
   const [currentStep, setCurrentStep] = useState(1);
   const [uploading, setUploading] = useState(false);
@@ -58,6 +64,10 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
     bhkType: "",
     apartmentType: "",
     apartmentName: "",
+    commercialSubtype: "",
+    frontageFt: "",
+    floorNumber: "",
+    washroomCount: "0",
     locality: "",
     city: "",
     address: "",
@@ -77,6 +87,9 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
     description: "",
     amenities: [],
   });
+
+  const isCommercial = formData.propertyType === "Commercial";
+  const COMMERCIAL_SUBTYPES = ["Shop", "Office", "Warehouse", "Showroom"];
 
   const amenitiesList = [
     "Lift",
@@ -104,12 +117,17 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
   const validateStep = useCallback(
     (step) => {
       const errors = {};
+      const commercial = formData.propertyType === "Commercial";
       if (step === 1) {
         if (!formData.propertyFor) errors.propertyFor = "Select rent, sell, or PG";
         if (!formData.propertyType) errors.propertyType = "Select property type";
-        if (!formData.userType) errors.userType = "Select owner or broker";
-        if (!formData.apartmentType) errors.apartmentType = "Select apartment type";
-        if (!formData.bhkType) errors.bhkType = "Select BHK type";
+        if (formData.userType !== "Owner") errors.userType = "Confirm you are the property owner";
+        if (commercial) {
+          if (!formData.commercialSubtype) errors.commercialSubtype = "Select commercial subtype";
+        } else {
+          if (!formData.apartmentType) errors.apartmentType = "Select apartment type";
+          if (!formData.bhkType) errors.bhkType = "Select BHK type";
+        }
       }
       if (step === 2) {
         if (!selectedDistrictId) errors.district = "Select a district";
@@ -119,12 +137,19 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
         if (!formData.carpetArea || Number(formData.carpetArea) <= 0) {
           errors.carpetArea = "Enter a valid carpet area";
         }
-        if (formData.floor === "" || Number(formData.floor) < 0) errors.floor = "Enter floor number";
-        if (!formData.totalFloors || Number(formData.totalFloors) <= 0) {
-          errors.totalFloors = "Enter total floors";
+        if (commercial) {
+          if (formData.floorNumber === "" || Number(formData.floorNumber) < 0) {
+            errors.floorNumber = "Enter floor number";
+          }
+          if (!formData.propertyAge) errors.propertyAge = "Select property age";
+        } else {
+          if (formData.floor === "" || Number(formData.floor) < 0) errors.floor = "Enter floor number";
+          if (!formData.totalFloors || Number(formData.totalFloors) <= 0) {
+            errors.totalFloors = "Enter total floors";
+          }
+          if (!formData.propertyAge) errors.propertyAge = "Select property age";
+          if (!formData.furnishingStatus) errors.furnishingStatus = "Select furnishing";
         }
-        if (!formData.propertyAge) errors.propertyAge = "Select property age";
-        if (!formData.furnishingStatus) errors.furnishingStatus = "Select furnishing";
       }
       if (step === 3) {
         if (!formData.expectedPrice || Number(formData.expectedPrice) <= 0) {
@@ -143,10 +168,19 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
       setFormData({
         propertyFor: editProperty.property_for || "",
         propertyType: editProperty.property_type || "",
-        userType: editProperty.user_type || "",
+        userType: editProperty.user_type === "Owner" ? "Owner" : "",
         bhkType: editProperty.bhk_type || "",
         apartmentType: editProperty.apartment_type || "",
         apartmentName: editProperty.apartment_name || "",
+        commercialSubtype: editProperty.commercial_subtype || editProperty.apartment_type || "",
+        frontageFt: editProperty.frontage_ft != null ? String(editProperty.frontage_ft) : "",
+        floorNumber:
+          editProperty.floor_number != null
+            ? String(editProperty.floor_number)
+            : editProperty.floor != null
+              ? String(editProperty.floor)
+              : "",
+        washroomCount: String(editProperty.washroom_count ?? editProperty.bathrooms ?? 0),
         locality: editProperty.locality || "",
         city: editProperty.city || "",
         address: editProperty.address || "",
@@ -182,18 +216,29 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
       setFormData((prev) => ({
         ...prev,
         city: navbarLocation.district_name || prev.city,
+        userType: "Owner",
       }));
       if (navbarLocation.type === "taluk") setSelectedTalukId(String(navbarLocation.id));
       if (navbarLocation.type === "village") {
         if (navbarLocation.taluk_id) setSelectedTalukId(String(navbarLocation.taluk_id));
         setSelectedVillageId(String(navbarLocation.id));
-        setFormData((prev) => ({ ...prev, locality: navbarLocation.name }));
+        setFormData((prev) => ({
+          ...prev,
+          locality: navbarLocation.name,
+          userType: "Owner",
+        }));
       }
     } else if (navbarLocation?.type === "district") {
       setSelectedDistrictId(String(navbarLocation.id));
-      setFormData((prev) => ({ ...prev, city: navbarLocation.name }));
+      setFormData((prev) => ({
+        ...prev,
+        city: navbarLocation.name,
+        userType: "Owner",
+      }));
+    } else if (user) {
+      setFormData((prev) => ({ ...prev, userType: "Owner" }));
     }
-  }, [isOpen, navbarLocation]);
+  }, [isOpen, navbarLocation, user]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -240,7 +285,11 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
 
   const applyDraft = (draft) => {
     setCurrentStep(draft.currentStep || 1);
-    setFormData((prev) => ({ ...prev, ...draft.formData }));
+    const nextForm = { ...draft.formData };
+    if (nextForm.userType && nextForm.userType !== "Owner") {
+      nextForm.userType = "";
+    }
+    setFormData((prev) => ({ ...prev, ...nextForm }));
     setSelectedDistrictId(draft.selectedDistrictId || "");
     setSelectedTalukId(draft.selectedTalukId || "");
     setSelectedVillageId(draft.selectedVillageId || "");
@@ -267,7 +316,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length + uploadedFiles.length > 20) {
-      alert("Maximum 20 images allowed");
+      toast("Maximum 20 images allowed", "error");
       return;
     }
     setUploadedFiles([...uploadedFiles, ...files]);
@@ -302,6 +351,10 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
       bhkType: "",
       apartmentType: "",
       apartmentName: "",
+      commercialSubtype: "",
+      frontageFt: "",
+      floorNumber: "",
+      washroomCount: "0",
       locality: "",
       city: "",
       address: "",
@@ -333,7 +386,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
   const handleSubmit = async () => {
     const totalImages = uploadedFiles.length + existingImages.length;
     if (totalImages < 1) {
-      alert("Please upload at least 1 property image");
+      toast("Please upload at least 1 property image", "error");
       return;
     }
 
@@ -344,22 +397,38 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
 
       submitData.append("propertyFor", formData.propertyFor);
       submitData.append("propertyType", formData.propertyType);
-      submitData.append("userType", formData.userType);
-      submitData.append("bhkType", formData.bhkType);
-      submitData.append("apartmentType", formData.apartmentType);
+      submitData.append("userType", "Owner");
+
+      if (isCommercial) {
+        submitData.append("commercialSubtype", formData.commercialSubtype);
+        submitData.append("apartmentType", formData.commercialSubtype);
+        submitData.append("bhkType", formData.commercialSubtype);
+        submitData.append("furnishingStatus", "Not Applicable");
+        submitData.append("floorNumber", formData.floorNumber || "0");
+        submitData.append("floor", formData.floorNumber || "0");
+        submitData.append("totalFloors", formData.totalFloors || String(Math.max(Number(formData.floorNumber) || 0, 1)));
+        submitData.append("washroomCount", formData.washroomCount || "0");
+        submitData.append("bathrooms", formData.washroomCount || "0");
+        submitData.append("balconies", "0");
+        if (formData.frontageFt) submitData.append("frontageFt", formData.frontageFt);
+      } else {
+        submitData.append("bhkType", formData.bhkType);
+        submitData.append("apartmentType", formData.apartmentType);
+        submitData.append("furnishingStatus", formData.furnishingStatus);
+        submitData.append("floor", formData.floor);
+        submitData.append("totalFloors", formData.totalFloors);
+        submitData.append("bathrooms", formData.bathrooms);
+        submitData.append("balconies", formData.balconies);
+      }
+
       submitData.append("apartmentName", formData.apartmentName || "");
       submitData.append("locality", formData.locality);
       submitData.append("city", formData.city);
       submitData.append("address", formData.address);
       submitData.append("builtUpArea", formData.builtUpArea || "0");
       submitData.append("carpetArea", formData.carpetArea);
-      submitData.append("floor", formData.floor);
-      submitData.append("totalFloors", formData.totalFloors);
       submitData.append("propertyAge", formData.propertyAge);
-      submitData.append("furnishingStatus", formData.furnishingStatus);
       submitData.append("parking", formData.parking);
-      submitData.append("bathrooms", formData.bathrooms);
-      submitData.append("balconies", formData.balconies);
       submitData.append("expectedPrice", formData.expectedPrice);
       submitData.append(
         "maintenanceCharges",
@@ -379,15 +448,18 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
         : await propertyAPI.createProperty(submitData);
 
       clearPostDraft();
-      alert(editProperty ? "Listing updated and resubmitted for review!" : "Property posted successfully!");
+      toast(
+        editProperty ? "Listing updated and resubmitted for review!" : "Property posted successfully!",
+        "success"
+      );
       if (onSuccess) {
         onSuccess(response.id);
       }
     } catch (error) {
       console.error("Error submitting property:", error);
-      alert(
-        error.response?.data?.detail ||
-          "Failed to post property. Please try again."
+      toast(
+        error.response?.data?.detail || "Failed to post property. Please try again.",
+        "error"
       );
     } finally {
       setUploading(false);
@@ -426,24 +498,30 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
             {/* Header - More Compact */}
             <header className="px-3 py-2.5 border-b border-gray-200 flex items-center justify-between flex-shrink-0 bg-white rounded-t-card">
               <div className="flex items-center gap-2">
-                <button
-                  onClick={handleClose}
-                  className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-                  disabled={uploading}
-                >
-                  <ArrowLeft size={20} className="text-gray-700" />
-                </button>
+                <WithTooltip label="Go back">
+                  <button
+                    onClick={handleClose}
+                    className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                    disabled={uploading}
+                    aria-label="Go back"
+                  >
+                    <ArrowLeft size={20} className="text-gray-700" />
+                  </button>
+                </WithTooltip>
                 <h1 id="create-post-title" className="text-sm md:text-base font-semibold text-gray-800">
                   Post Your Property
                 </h1>
               </div>
-              <button
-                onClick={handleClose}
-                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                disabled={uploading}
-              >
-                <X size={18} className="text-gray-600" />
-              </button>
+              <WithTooltip label="Close">
+                <button
+                  onClick={handleClose}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                  disabled={uploading}
+                  aria-label="Close"
+                >
+                  <X size={18} className="text-gray-600" />
+                </button>
+              </WithTooltip>
             </header>
 
             {/* Progress - More Compact */}
@@ -586,7 +664,21 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
                             <OptionButton
                               key={option}
                               selected={formData.propertyType === option}
-                              onClick={() => setFormData({ ...formData, propertyType: option })}
+                              onClick={() =>
+                                setFormData({
+                                  ...formData,
+                                  propertyType: option,
+                                  // Clear the other branch so stale values aren't submitted.
+                                  ...(option === "Commercial"
+                                    ? { bhkType: "", apartmentType: "", furnishingStatus: "" }
+                                    : {
+                                        commercialSubtype: "",
+                                        frontageFt: "",
+                                        floorNumber: "",
+                                        washroomCount: "0",
+                                      }),
+                                })
+                              }
                             >
                               {option}
                             </OptionButton>
@@ -594,71 +686,116 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          You are<span className={requiredMark}>*</span>
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {["Owner", "Broker/Agent"].map((option) => (
-                            <OptionButton
-                              key={option}
-                              selected={formData.userType === option}
-                              onClick={() => setFormData({ ...formData, userType: option })}
-                            >
-                              {option}
-                            </OptionButton>
-                          ))}
-                        </div>
-                      </div>
+                      <label
+                        className={`flex items-start gap-3 rounded-control border-2 p-3 cursor-pointer transition-colors ${
+                          formData.userType === "Owner"
+                            ? "border-brand-500 bg-brand-50"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.userType === "Owner"}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              userType: e.target.checked ? "Owner" : "",
+                            })
+                          }
+                          className="mt-0.5 size-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                        />
+                        <span>
+                          <span className="block text-xs font-medium text-gray-800">
+                            I am the owner of this property
+                            <span className={requiredMark}>*</span>
+                          </span>
+                          <span className="mt-0.5 block text-[11px] text-gray-500">
+                            Town-X listings are owner-only. Agents and brokers cannot post.
+                          </span>
+                        </span>
+                      </label>
+                      {fieldErrors.userType ? (
+                        <p className="text-xs text-status-error">{fieldErrors.userType}</p>
+                      ) : null}
 
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          Apartment Type<span className={requiredMark}>*</span>
-                        </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {[
-                            "Flat",
-                            "Independent House",
-                            "Villa",
-                            "Builder Floor",
-                            "Plot/Land",
-                          ].map((option) => (
-                            <OptionButton
-                              key={option}
-                              small
-                              selected={formData.apartmentType === option}
-                              onClick={() => setFormData({ ...formData, apartmentType: option })}
-                            >
-                              {option}
-                            </OptionButton>
-                          ))}
+                      {isCommercial ? (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                            Commercial type<span className={requiredMark}>*</span>
+                          </label>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {COMMERCIAL_SUBTYPES.map((option) => (
+                              <OptionButton
+                                key={option}
+                                selected={formData.commercialSubtype === option}
+                                onClick={() =>
+                                  setFormData({ ...formData, commercialSubtype: option })
+                                }
+                              >
+                                {option}
+                              </OptionButton>
+                            ))}
+                          </div>
+                          {fieldErrors.commercialSubtype ? (
+                            <p className="mt-1 text-xs text-status-error">
+                              {fieldErrors.commercialSubtype}
+                            </p>
+                          ) : null}
                         </div>
-                      </div>
+                      ) : (
+                        <>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                              Apartment Type<span className={requiredMark}>*</span>
+                            </label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {[
+                                "Flat",
+                                "Independent House",
+                                "Villa",
+                                "Builder Floor",
+                                "Plot/Land",
+                              ].map((option) => (
+                                <OptionButton
+                                  key={option}
+                                  small
+                                  selected={formData.apartmentType === option}
+                                  onClick={() =>
+                                    setFormData({ ...formData, apartmentType: option })
+                                  }
+                                >
+                                  {option}
+                                </OptionButton>
+                              ))}
+                            </div>
+                          </div>
 
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          BHK Type<span className={requiredMark}>*</span>
-                        </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {[
-                            "1 RK",
-                            "1 BHK",
-                            "2 BHK",
-                            "3 BHK",
-                            "4 BHK",
-                            "5 BHK",
-                            "5+ BHK",
-                          ].map((option) => (
-                            <OptionButton
-                              key={option}
-                              selected={formData.bhkType === option}
-                              onClick={() => setFormData({ ...formData, bhkType: option })}
-                            >
-                              {option}
-                            </OptionButton>
-                          ))}
-                        </div>
-                      </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                              BHK Type<span className={requiredMark}>*</span>
+                            </label>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                              {[
+                                "1 RK",
+                                "1 BHK",
+                                "2 BHK",
+                                "3 BHK",
+                                "4 BHK",
+                                "5 BHK",
+                                "5+ BHK",
+                              ].map((option) => (
+                                <OptionButton
+                                  key={option}
+                                  selected={formData.bhkType === option}
+                                  onClick={() => setFormData({ ...formData, bhkType: option })}
+                                >
+                                  {option}
+                                </OptionButton>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
 
@@ -688,14 +825,14 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Apartment/Society Name
+                          {isCommercial ? "Building / project name" : "Apartment/Society Name"}
                         </label>
                         <input
                           type="text"
                           name="apartmentName"
                           value={formData.apartmentName}
                           onChange={handleInputChange}
-                          placeholder="Enter apartment name"
+                          placeholder={isCommercial ? "Optional" : "Enter apartment name"}
                           className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
                         />
                       </div>
@@ -732,46 +869,107 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Built-up Area (sq.ft)
+                            <span className="ml-1 font-normal text-brand-600">(buyers check this)</span>
                           </label>
                           <input
                             type="number"
                             name="builtUpArea"
                             value={formData.builtUpArea}
                             onChange={handleInputChange}
-                            placeholder="Sq.ft"
+                            placeholder="Recommended — helps buyers compare"
                             className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
                           />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Floor Number<span className={requiredMark}>*</span>
-                          </label>
-                          <input
-                            type="number"
-                            name="floor"
-                            value={formData.floor}
-                            onChange={handleInputChange}
-                            placeholder="Floor"
-                            className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
-                          />
+                      {isCommercial ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Floor number<span className={requiredMark}>*</span>
+                            </label>
+                            <input
+                              type="number"
+                              name="floorNumber"
+                              value={formData.floorNumber}
+                              onChange={handleInputChange}
+                              placeholder="Floor"
+                              className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
+                            />
+                            {fieldErrors.floorNumber ? (
+                              <p className="mt-1 text-xs text-status-error">{fieldErrors.floorNumber}</p>
+                            ) : null}
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Frontage (ft)
+                            </label>
+                            <input
+                              type="number"
+                              name="frontageFt"
+                              value={formData.frontageFt}
+                              onChange={handleInputChange}
+                              placeholder="Optional"
+                              className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Washrooms
+                            </label>
+                            <input
+                              type="number"
+                              name="washroomCount"
+                              value={formData.washroomCount}
+                              onChange={handleInputChange}
+                              min="0"
+                              className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Parking spots
+                            </label>
+                            <input
+                              type="number"
+                              name="parking"
+                              value={formData.parking}
+                              onChange={handleInputChange}
+                              min="0"
+                              className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Total Floors<span className={requiredMark}>*</span>
-                          </label>
-                          <input
-                            type="number"
-                            name="totalFloors"
-                            value={formData.totalFloors}
-                            onChange={handleInputChange}
-                            placeholder="Total"
-                            className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
-                          />
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Floor Number<span className={requiredMark}>*</span>
+                            </label>
+                            <input
+                              type="number"
+                              name="floor"
+                              value={formData.floor}
+                              onChange={handleInputChange}
+                              placeholder="Floor"
+                              className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Total Floors<span className={requiredMark}>*</span>
+                            </label>
+                            <input
+                              type="number"
+                              name="totalFloors"
+                              value={formData.totalFloors}
+                              onChange={handleInputChange}
+                              placeholder="Total"
+                              className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
+                            />
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">
@@ -793,74 +991,78 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                          Furnishing Status<span className={requiredMark}>*</span>
-                        </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {[
-                            "Fully Furnished",
-                            "Semi Furnished",
-                            "Unfurnished",
-                          ].map((option) => (
-                            <OptionButton
-                              key={option}
-                              small
-                              selected={formData.furnishingStatus === option}
-                              onClick={() =>
-                                setFormData({
-                                  ...formData,
-                                  furnishingStatus: option,
-                                })
-                              }
-                            >
-                              {option}
-                            </OptionButton>
-                          ))}
-                        </div>
-                      </div>
+                      {!isCommercial ? (
+                        <>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                              Furnishing Status<span className={requiredMark}>*</span>
+                            </label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {[
+                                "Fully Furnished",
+                                "Semi Furnished",
+                                "Unfurnished",
+                              ].map((option) => (
+                                <OptionButton
+                                  key={option}
+                                  small
+                                  selected={formData.furnishingStatus === option}
+                                  onClick={() =>
+                                    setFormData({
+                                      ...formData,
+                                      furnishingStatus: option,
+                                    })
+                                  }
+                                >
+                                  {option}
+                                </OptionButton>
+                              ))}
+                            </div>
+                          </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Bathrooms
-                          </label>
-                          <input
-                            type="number"
-                            name="bathrooms"
-                            value={formData.bathrooms}
-                            onChange={handleInputChange}
-                            placeholder="0"
-                            className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Balconies
-                          </label>
-                          <input
-                            type="number"
-                            name="balconies"
-                            value={formData.balconies}
-                            onChange={handleInputChange}
-                            placeholder="0"
-                            className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Parking
-                          </label>
-                          <input
-                            type="number"
-                            name="parking"
-                            value={formData.parking}
-                            onChange={handleInputChange}
-                            placeholder="0"
-                            className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
-                          />
-                        </div>
-                      </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Bathrooms
+                              </label>
+                              <input
+                                type="number"
+                                name="bathrooms"
+                                value={formData.bathrooms}
+                                onChange={handleInputChange}
+                                placeholder="0"
+                                className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Balconies
+                              </label>
+                              <input
+                                type="number"
+                                name="balconies"
+                                value={formData.balconies}
+                                onChange={handleInputChange}
+                                placeholder="0"
+                                className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Parking
+                              </label>
+                              <input
+                                type="number"
+                                name="parking"
+                                value={formData.parking}
+                                onChange={handleInputChange}
+                                placeholder="0"
+                                className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
+                              />
+                            </div>
+                          </div>
+                        </>
+                      ) : null}
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1.5">
@@ -974,13 +1176,12 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
                           name="description"
                           value={formData.description}
                           onChange={handleInputChange}
-                          placeholder="Describe your property, locality, and any additional information..."
+                          placeholder={"### Project name\n\n**Key highlights**\n* Plot sizes\n* Location benefits"}
                           rows="3"
                           className="w-full px-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
                         />
                         <p className="text-[10px] text-gray-500 mt-1">
-                          Mention key features, nearby landmarks, and what makes your
-                          property special
+                          Markdown supported (headings, bold, lists). It will display formatted for buyers and admins.
                         </p>
                       </div>
                     </div>
@@ -1047,13 +1248,16 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
                                   alt={`Upload ${index + 1}`}
                                   className="w-full h-24 object-cover rounded-control border border-gray-200"
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() => removeFile(index)}
-                                  className="absolute top-1 right-1 bg-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-soft-md"
-                                >
-                                  <X size={14} className="text-gray-600" />
-                                </button>
+                                <WithTooltip label="Remove photo">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeFile(index)}
+                                    className="absolute top-1 right-1 bg-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-soft-md"
+                                    aria-label="Remove photo"
+                                  >
+                                    <X size={14} className="text-gray-600" />
+                                  </button>
+                                </WithTooltip>
                               </div>
                             ))}
                           </div>
@@ -1098,7 +1302,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
                 >
                   {uploading ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      <TownLoader size="xs" className="[&_span]:bg-white [&_.rounded-full]:border-white/50" />
                       Uploading...
                     </>
                   ) : currentStep === 4 ? (

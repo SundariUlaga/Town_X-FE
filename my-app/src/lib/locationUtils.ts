@@ -67,6 +67,29 @@ export function getLocationCityFilter(location: SelectedLocation | null): string
   return location.district_name;
 }
 
+/**
+ * Taluk / zone (village) name for property `locality` API filter.
+ * District-only selection returns undefined (city filter is enough).
+ */
+export function getLocationLocalityFilter(location: SelectedLocation | null): string | undefined {
+  if (!location) return undefined;
+  if (location.type === "district") return undefined;
+  return location.name;
+}
+
+/** Params to pass to property list/search for the selected location scope. */
+export function getLocationFilterParams(location: SelectedLocation | null): {
+  city?: string;
+  locality?: string;
+} {
+  const city = getLocationCityFilter(location);
+  const locality = getLocationLocalityFilter(location);
+  return {
+    ...(city ? { city } : {}),
+    ...(locality ? { locality } : {}),
+  };
+}
+
 export function buildPropertySearchQuery(
   location: SelectedLocation | null,
   query: string
@@ -86,4 +109,11 @@ export function buildPropertySearchQuery(
 export function locationDisplayName(location: SelectedLocation | null): string {
   if (!location) return "Select location";
   return location.name;
+}
+
+export function locationTypeLabel(type: LocationType | string): string {
+  if (type === "district") return "District";
+  if (type === "taluk") return "Taluk";
+  if (type === "village") return "Zone";
+  return "Location";
 }

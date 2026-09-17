@@ -7,7 +7,15 @@ export type NotificationType =
   | "ad_approved"
   | "ad_rejected"
   | "ad_changes_requested"
-  | "ad_published";
+  | "ad_published"
+  | "property_approved"
+  | "property_rejected"
+  | "property_changes_requested"
+  | "property_enquiry"
+  | "property_submitted"
+  | "property_resubmitted"
+  | "ad_expired"
+  | "admin_review_queue";
 
 export interface AppNotification {
   id: number;

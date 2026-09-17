@@ -14,6 +14,7 @@ import {
   KeyRound,
   CheckCircle2,
   Star,
+  Plus,
 } from "lucide-react";
 import {
   motion,
@@ -25,9 +26,9 @@ import {
   useMotionValue,
 } from "motion/react";
 import { useNavigate } from "react-router-dom";
-import { useAuth, getPostAuthRoute, KYC_ROUTE, ROLE_HOME_ROUTE } from "../context/AuthContext";
+import { useAuth, getPostAuthRoute } from "../context/AuthContext";
 import { useAuthDrawer, useLogout } from "@/context/AuthDrawerContext";
-
+import { redirectToAdminConsole } from "@/lib/adminApp";
 import { TownExchangeLogo, APP_NAME, APP_LOCATION } from "@/components/brand/TownExchangeLogo";
 import { FooterLinks } from "@/components/legal/FooterLinks";
 
@@ -39,14 +40,14 @@ const WHY_US = [
     title: "No Brokerage Fees",
     description: "Connect with owners directly — zero middleman commission.",
     accent: "from-brand-500/10 to-secondary-500/5",
-    glow: "group-hover:shadow-[0_12px_40px_rgba(168,85,247,0.18)]",
+    glow: "group-hover:shadow-[0_12px_40px_rgba(14,165,233,0.18)]",
   },
   {
     icon: Images,
     title: "Rich Photo Galleries",
     description: "Every listing comes with real, high-quality property photos.",
     accent: "from-brand-500/10 to-secondary-500/5",
-    glow: "group-hover:shadow-[0_12px_40px_rgba(139,92,246,0.15)]",
+    glow: "group-hover:shadow-[0_12px_40px_rgba(2,132,199,0.15)]",
   },
   {
     icon: Heart,
@@ -102,7 +103,7 @@ const AUDIENCES = [
   },
   {
     icon: KeyRound,
-    title: "For Owners & Agents",
+    title: "For Owners",
     points: [
       "List properties for free",
       "Manage listings from your dashboard",
@@ -125,63 +126,97 @@ const MARQUEE_ITEMS = [
   "Verified listings",
 ];
 
-const HERO_FLOATING_CARDS = [
-  { bhk: "2 BHK", area: "Velachery", price: "₹28,000/mo", rotate: -8, x: "-18%", y: "12%", delay: 0 },
-  { bhk: "3 BHK", area: "OMR", price: "₹85 L", rotate: 6, x: "72%", y: "8%", delay: 0.4 },
-  { bhk: "Studio", area: "T. Nagar", price: "₹18,000/mo", rotate: -4, x: "78%", y: "58%", delay: 0.8 },
+const HERO_LISTINGS = [
+  {
+    bhk: "2 BHK",
+    area: "Velachery",
+    price: "₹28,000/mo",
+    tone: "from-brand-100 to-sky-100",
+    rotate: -12,
+    offsetX: -100,
+    yBase: 28,
+    z: 1,
+    float: 12,
+  },
+  {
+    bhk: "3 BHK",
+    area: "OMR",
+    price: "₹85 L",
+    tone: "from-secondary-100 to-amber-50",
+    rotate: 2,
+    offsetX: 0,
+    yBase: 0,
+    z: 3,
+    float: 16,
+  },
+  {
+    bhk: "Studio",
+    area: "T. Nagar",
+    price: "₹18,000/mo",
+    tone: "from-violet-100 to-brand-50",
+    rotate: 12,
+    offsetX: 100,
+    yBase: 32,
+    z: 2,
+    float: 11,
+  },
 ];
 
 const STATS = [
   { value: 500, suffix: "+", label: "Listings explored" },
-  { value: 0, suffix: "", label: "Brokerage fees", prefix: "₹" },
+  { value: 0, suffix: "", label: "Brokerage fees", prefix: "₹", emphasize: true },
   { value: 24, suffix: "hr", label: "Story freshness" },
 ];
 
+const EASE_OUT = [0.22, 1, 0.36, 1];
+
 const fadeUp = {
-  hidden: { opacity: 0, y: 32 },
+  hidden: { opacity: 0, y: 28 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.65, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.55, ease: EASE_OUT },
   },
 };
 
 const fadeScale = {
-  hidden: { opacity: 0, scale: 0.92 },
+  hidden: { opacity: 0, scale: 0.96 },
   visible: {
     opacity: 1,
     scale: 1,
-    transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.5, ease: EASE_OUT },
   },
 };
 
 const stagger = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.1, delayChildren: 0.08 } },
+  visible: { transition: { staggerChildren: 0.09, delayChildren: 0.04 } },
 };
 
 const springPop = {
-  hidden: { opacity: 0, scale: 0.85, y: 20 },
+  hidden: { opacity: 0, y: 18 },
   visible: {
     opacity: 1,
-    scale: 1,
     y: 0,
-    transition: { type: "spring", stiffness: 260, damping: 22 },
+    transition: { type: "spring", stiffness: 280, damping: 24 },
   },
 };
 
+const heroStagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.11, delayChildren: 0.12 } },
+};
+
 function RevealSection({ children, className = "" }) {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
   const reduceMotion = useReducedMotion() ?? false;
 
   return (
     <motion.section
-      ref={ref}
       className={className}
       variants={stagger}
-      initial="hidden"
-      animate={reduceMotion || inView ? "visible" : "hidden"}
+      initial={reduceMotion ? false : "hidden"}
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.15, margin: "0px 0px -40px 0px" }}
     >
       {children}
     </motion.section>
@@ -231,75 +266,175 @@ function DotGrid() {
   );
 }
 
-function HeroFloatingCard({ card, reduceMotion }) {
+function CreativeListingCard({ listing, index, reduceMotion, active, onActivate }) {
   return (
     <motion.div
-      className="absolute hidden lg:block w-44 rounded-card bg-white/90 backdrop-blur-md border border-white shadow-soft-lg p-3 pointer-events-none select-none"
-      style={{ left: card.x, top: card.y, rotate: card.rotate }}
-      initial={{ opacity: 0, y: 40, scale: 0.9 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ delay: 0.6 + card.delay, type: "spring", stiffness: 200, damping: 20 }}
+      className="absolute top-4 w-[min(70vw,200px)] cursor-grab touch-none select-none sm:w-[210px] active:cursor-grabbing"
+      style={{
+        left: `calc(50% + ${listing.offsetX}px)`,
+        x: "-50%",
+        zIndex: active ? 20 : listing.z,
+      }}
+      initial={{ opacity: 0, y: 90, scale: 0.82, rotate: listing.rotate * 2 }}
+      animate={{ opacity: 1, y: listing.yBase, scale: active ? 1.06 : 1, rotate: listing.rotate }}
+      transition={{
+        type: "spring",
+        stiffness: 220,
+        damping: 20,
+        delay: 0.4 + index * 0.14,
+      }}
+      drag={!reduceMotion}
+      dragConstraints={{ left: -36, right: 36, top: -28, bottom: 28 }}
+      dragElastic={0.4}
+      onDragStart={() => onActivate(index)}
+      onHoverStart={() => onActivate(index)}
+      whileTap={reduceMotion ? undefined : { cursor: "grabbing" }}
     >
-      <motion.div
-        animate={reduceMotion ? undefined : { y: [0, -10, 0] }}
-        transition={{ duration: 4 + card.delay, repeat: Infinity, ease: "easeInOut" }}
+      <motion.article
+        animate={
+          reduceMotion
+            ? undefined
+            : {
+                y: [0, -listing.float, 0],
+                rotate: [0, index % 2 === 0 ? -2.5 : 2.5, 0],
+              }
+        }
+        transition={{
+          duration: 3.6 + index * 0.5,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: index * 0.25,
+        }}
+        whileHover={reduceMotion ? undefined : { scale: 1.03 }}
+        className="rounded-card border border-white bg-white/95 p-3.5 text-left shadow-[0_18px_50px_rgba(15,23,42,0.14)] backdrop-blur-md"
       >
-        <div className="h-16 rounded-control bg-gradient-to-br from-brand-100 to-brand-200 mb-2 flex items-center justify-center">
-          <Building2 className="w-7 h-7 text-brand-500/70" />
+        <motion.div
+          className={`mb-3 flex h-24 items-center justify-center overflow-hidden rounded-control bg-gradient-to-br ${listing.tone}`}
+          style={{ backgroundSize: "180% 180%" }}
+          animate={
+            reduceMotion ? undefined : { backgroundPosition: ["0% 0%", "100% 100%", "0% 0%"] }
+          }
+          transition={{ duration: 9, repeat: Infinity, ease: "linear" }}
+        >
+          <motion.div
+            animate={
+              reduceMotion ? undefined : { rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }
+            }
+            transition={{ duration: 4.2, repeat: Infinity, ease: "easeInOut", delay: index * 0.2 }}
+          >
+            <Building2 className="size-8 text-brand-600/75" />
+          </motion.div>
+        </motion.div>
+        <p className="text-xs font-bold text-gray-900">
+          {listing.bhk} · {listing.area}
+        </p>
+        <p className="mt-0.5 text-sm font-semibold text-brand-700">{listing.price}</p>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-1">
+            <Star className="size-3 fill-amber-400 text-amber-400" />
+            <span className="text-[10px] font-medium text-gray-600">Owner verified</span>
+          </span>
+          <motion.span
+            className="rounded-full bg-brand-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-brand-700"
+            animate={reduceMotion ? undefined : { opacity: [0.65, 1, 0.65] }}
+            transition={{ duration: 2.2, repeat: Infinity }}
+          >
+            Live
+          </motion.span>
         </div>
-        <p className="text-xs font-bold text-foreground">{card.bhk} · {card.area}</p>
-        <p className="text-sm font-semibold text-brand-600 mt-0.5">{card.price}</p>
-        <div className="flex items-center gap-1 mt-1.5">
-          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-          <span className="text-[10px] text-gray-500">Owner verified</span>
-        </div>
-      </motion.div>
+      </motion.article>
+    </motion.div>
+  );
+}
+
+function CreativeListingsStage({ reduceMotion }) {
+  const [active, setActive] = useState(1);
+
+  return (
+    <motion.div
+      className="relative mx-auto mt-8 w-full max-w-3xl"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.35, duration: 0.45 }}
+    >
+      <p className="mb-1 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+        Live on Town-X
+      </p>
+      <p className="mb-2 text-center text-[10px] text-gray-400">Drag a card · hover to focus</p>
+      <div className="relative mx-auto h-[270px] w-full overflow-visible sm:h-[300px]">
+        <motion.div
+          className="pointer-events-none absolute left-1/2 top-[55%] h-36 w-[72%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-300/30 blur-3xl"
+          animate={reduceMotion ? undefined : { scale: [1, 1.15, 1], opacity: [0.3, 0.55, 0.3] }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+        />
+        {HERO_LISTINGS.map((listing, index) => (
+          <CreativeListingCard
+            key={`${listing.bhk}-${listing.area}`}
+            listing={listing}
+            index={index}
+            reduceMotion={reduceMotion}
+            active={active === index}
+            onActivate={setActive}
+          />
+        ))}
+      </div>
     </motion.div>
   );
 }
 
 function AnimatedHeadline({ reduceMotion }) {
-  const words = ["Find your next home", "without the brokerage"];
+  const line1 = "Find your next home";
+  const line2 = "without the brokerage";
 
   if (reduceMotion) {
     return (
-      <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight text-foreground leading-[1.08]">
-        Find your next home
-        <span className="block mt-1 bg-gradient-to-r from-brand-700 via-brand-500 to-secondary-500 bg-clip-text text-transparent">
-          without the brokerage
+      <h1 className="font-display text-4xl font-semibold leading-[1.08] tracking-tight text-gray-900 sm:text-5xl md:text-6xl">
+        {line1}
+        <span className="mt-1 block bg-gradient-to-r from-brand-700 via-brand-500 to-secondary-500 bg-clip-text text-transparent">
+          {line2}
         </span>
       </h1>
     );
   }
 
   return (
-    <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight leading-[1.08]">
-      <motion.span
-        className="block text-foreground"
-        initial={{ opacity: 0, y: 24, filter: "blur(8px)" }}
-        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-        transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-      >
-        {words[0]}
-      </motion.span>
-      <motion.span
-        className="block mt-1 bg-gradient-to-r from-brand-700 via-brand-500 to-secondary-500 bg-clip-text text-transparent bg-[length:200%_auto]"
-        initial={{ opacity: 0, y: 24, filter: "blur(8px)" }}
-        animate={{
-          opacity: 1,
-          y: 0,
-          filter: "blur(0px)",
-          backgroundPosition: ["0% center", "200% center"],
-        }}
-        transition={{
-          opacity: { duration: 0.7, delay: 0.3, ease: [0.22, 1, 0.36, 1] },
-          y: { duration: 0.7, delay: 0.3, ease: [0.22, 1, 0.36, 1] },
-          filter: { duration: 0.7, delay: 0.3 },
-          backgroundPosition: { duration: 6, repeat: Infinity, ease: "linear", delay: 1 },
-        }}
-      >
-        {words[1]}
-      </motion.span>
+    <h1 className="font-display text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl md:text-6xl">
+      <span className="block text-gray-900">
+        {line1.split(" ").map((word, i) => (
+          <motion.span
+            key={`l1-${word}-${i}`}
+            className="mr-[0.28em] inline-block last:mr-0"
+            initial={{ opacity: 0, y: 28, filter: "blur(8px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            transition={{ duration: 0.55, delay: 0.12 + i * 0.07, ease: EASE_OUT }}
+          >
+            {word}
+          </motion.span>
+        ))}
+      </span>
+      <span className="mt-1 block">
+        {line2.split(" ").map((word, i) => (
+          <motion.span
+            key={`l2-${word}-${i}`}
+            className="mr-[0.28em] inline-block bg-gradient-to-r from-brand-700 via-brand-500 to-secondary-500 bg-clip-text text-transparent bg-[length:200%_auto] last:mr-0"
+            initial={{ opacity: 0, y: 28, filter: "blur(8px)" }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              filter: "blur(0px)",
+              backgroundPosition: ["0% center", "200% center"],
+            }}
+            transition={{
+              opacity: { duration: 0.55, delay: 0.42 + i * 0.08, ease: EASE_OUT },
+              y: { duration: 0.55, delay: 0.42 + i * 0.08, ease: EASE_OUT },
+              filter: { duration: 0.55, delay: 0.42 + i * 0.08 },
+              backgroundPosition: { duration: 7, repeat: Infinity, ease: "linear", delay: 1.4 },
+            }}
+          >
+            {word}
+          </motion.span>
+        ))}
+      </span>
     </h1>
   );
 }
@@ -309,19 +444,22 @@ function MarqueeStrip() {
   const items = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
 
   return (
-    <div className="relative border-y border-gray-200/80 bg-white/60 backdrop-blur-sm overflow-hidden py-3.5">
+    <div className="relative overflow-hidden border-y border-gray-200/80 bg-white py-3.5 [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]">
       <motion.div
-        className="flex gap-8 whitespace-nowrap"
+        className="flex w-max gap-10 whitespace-nowrap will-change-transform"
         animate={reduceMotion ? undefined : { x: ["0%", "-50%"] }}
-        transition={{ duration: 28, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: 32, repeat: Infinity, ease: "linear" }}
       >
         {items.map((item, i) => (
           <span
             key={`${item}-${i}`}
-            className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-600"
+            className="inline-flex shrink-0 items-center gap-2.5 px-1 text-xs font-medium text-gray-600 sm:text-sm"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+            <span className="size-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden />
             {item}
+            <span className="text-gray-300" aria-hidden>
+              •
+            </span>
           </span>
         ))}
       </motion.div>
@@ -331,15 +469,18 @@ function MarqueeStrip() {
 
 function SectionHeading({ title, subtitle }) {
   return (
-    <motion.div variants={fadeUp} className="text-center mb-10 md:mb-12">
+    <motion.div variants={fadeUp} className="mb-8 text-center md:mb-10">
       <motion.div
-        className="mx-auto mb-4 h-1 w-12 rounded-full bg-gradient-to-r from-brand-500 to-secondary-500"
-        variants={fadeScale}
+        className="mx-auto mb-4 h-1 origin-center rounded-full bg-gradient-to-r from-brand-500 to-secondary-500"
+        variants={{
+          hidden: { width: 0, opacity: 0 },
+          visible: { width: 48, opacity: 1, transition: { duration: 0.55, ease: EASE_OUT } },
+        }}
       />
-      <h2 className="text-2xl md:text-3xl font-semibold text-foreground">{title}</h2>
-      {subtitle && (
-        <p className="mt-2 text-sm md:text-base text-gray-500 max-w-xl mx-auto">{subtitle}</p>
-      )}
+      <h2 className="text-2xl font-semibold text-gray-900 md:text-3xl">{title}</h2>
+      {subtitle ? (
+        <p className="mx-auto mt-2 max-w-xl text-sm text-gray-600 md:text-base">{subtitle}</p>
+      ) : null}
     </motion.div>
   );
 }
@@ -349,8 +490,8 @@ function TiltCard({ children, className = "", glow = "" }) {
   const reduceMotion = useReducedMotion() ?? false;
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const rotateX = useSpring(useTransform(y, [-0.5, 0.5], [6, -6]), { stiffness: 300, damping: 30 });
-  const rotateY = useSpring(useTransform(x, [-0.5, 0.5], [-6, 6]), { stiffness: 300, damping: 30 });
+  const rotateX = useSpring(useTransform(y, [-0.5, 0.5], [5, -5]), { stiffness: 300, damping: 30 });
+  const rotateY = useSpring(useTransform(x, [-0.5, 0.5], [-5, 5]), { stiffness: 300, damping: 30 });
 
   const handleMove = (e) => {
     if (reduceMotion || !ref.current) return;
@@ -370,61 +511,95 @@ function TiltCard({ children, className = "", glow = "" }) {
       variants={springPop}
       onMouseMove={handleMove}
       onMouseLeave={handleLeave}
-      style={reduceMotion ? undefined : { rotateX, rotateY, transformPerspective: 800 }}
-      className={`group relative overflow-hidden rounded-card transition-shadow duration-300 ${glow} ${className}`}
+      style={
+        reduceMotion
+          ? undefined
+          : { rotateX, rotateY, transformPerspective: 900, transformStyle: "preserve-3d" }
+      }
+      className={`group relative rounded-card bg-white transition-shadow duration-300 ${glow} ${className}`}
     >
       {children}
     </motion.div>
   );
 }
 
-function AnimatedStat({ value, suffix, label, prefix = "", reduceMotion }) {
+function AnimatedStat({ value, suffix, label, prefix = "", emphasize = false, reduceMotion }) {
   const ref = useRef(null);
-  const inView = useInView(ref, { once: true });
-  const [count, setCount] = useState(0);
+  const inView = useInView(ref, { once: true, amount: 0.4 });
+  const [count, setCount] = useState(emphasize ? value : 0);
 
   useEffect(() => {
-    if (!inView || reduceMotion) {
+    if (emphasize) {
       setCount(value);
       return;
     }
-    let start = 0;
+    if (!inView) return;
+    if (reduceMotion) {
+      setCount(value);
+      return;
+    }
     const duration = 1400;
     const startTime = performance.now();
+    let raf = 0;
     const tick = (now) => {
       const progress = Math.min((now - startTime) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
       setCount(Math.round(eased * value));
-      if (progress < 1) requestAnimationFrame(tick);
+      if (progress < 1) raf = requestAnimationFrame(tick);
     };
-    requestAnimationFrame(tick);
-  }, [inView, value, reduceMotion]);
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [inView, value, reduceMotion, emphasize]);
 
   return (
-    <motion.div ref={ref} variants={fadeUp} className="text-center px-4">
-      <p className="font-display text-3xl sm:text-4xl font-semibold text-foreground">
-        {prefix}{count}{suffix}
+    <motion.div ref={ref} variants={fadeUp} className="px-4 text-center">
+      <p
+        className={`font-display text-3xl font-semibold sm:text-4xl ${
+          emphasize ? "text-brand-700" : "text-gray-900"
+        }`}
+      >
+        {prefix}
+        {count}
+        {suffix}
       </p>
-      <p className="mt-1 text-xs sm:text-sm text-gray-500">{label}</p>
+      <p className="mt-1.5 text-xs font-medium text-gray-600 sm:text-sm">{label}</p>
     </motion.div>
   );
 }
 
 function GlowButton({ children, onClick, variant = "primary", className = "", reduceMotion }) {
   const isPrimary = variant === "primary";
+  const ref = useRef(null);
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+  const springX = useSpring(mx, { stiffness: 280, damping: 22 });
+  const springY = useSpring(my, { stiffness: 280, damping: 22 });
 
   return (
     <motion.button
-      whileHover={reduceMotion ? undefined : { scale: 1.04, y: -2 }}
+      ref={ref}
+      style={reduceMotion ? undefined : { x: springX, y: springY }}
+      onMouseMove={(e) => {
+        if (reduceMotion || !ref.current) return;
+        const rect = ref.current.getBoundingClientRect();
+        mx.set((e.clientX - rect.left - rect.width / 2) * 0.18);
+        my.set((e.clientY - rect.top - rect.height / 2) * 0.18);
+      }}
+      onMouseLeave={() => {
+        mx.set(0);
+        my.set(0);
+      }}
+      whileHover={reduceMotion ? undefined : { scale: 1.04 }}
       whileTap={reduceMotion ? undefined : { scale: 0.97 }}
       onClick={onClick}
-      className={`relative overflow-hidden rounded-control text-sm font-semibold flex items-center justify-center gap-2 ${className}`}
+      className={`relative flex items-center justify-center gap-2 overflow-hidden rounded-control text-sm font-semibold ${className}`}
     >
       {isPrimary && !reduceMotion && (
         <motion.span
-          className="absolute inset-0 bg-gradient-to-r from-brand-400 via-brand-300 to-brand-400 opacity-0"
-          whileHover={{ opacity: 0.25 }}
-          transition={{ duration: 0.3 }}
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+          initial={{ x: "-120%" }}
+          whileHover={{ x: "120%" }}
+          transition={{ duration: 0.7, ease: EASE_OUT }}
         />
       )}
       <span className="relative z-10 flex items-center gap-2">{children}</span>
@@ -435,49 +610,66 @@ function GlowButton({ children, onClick, variant = "primary", className = "", re
 export default function DynamicLandingPage() {
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion() ?? false;
-  const { user, isAuthenticated, isLoading } = useAuth();
-  const { openAuthDrawer } = useAuthDrawer();
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const { openAuthDrawer, closeAuthDrawer } = useAuthDrawer();
   const logoutToHome = useLogout();
   const pageRef = useRef(null);
+  const sessionReady = !isLoading;
+  const signedIn = sessionReady && isAuthenticated;
 
   const { scrollYProgress } = useScroll({ target: pageRef, offset: ["start start", "end end"] });
   const headerBg = useTransform(scrollYProgress, [0, 0.08], ["rgba(255,255,255,0.72)", "rgba(255,255,255,0.95)"]);
-  const heroParallax = useTransform(scrollYProgress, [0, 0.25], [0, reduceMotion ? 0 : 80]);
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated || !user) return;
-    if (user.kyc_status === "verified") return;
-    navigate(KYC_ROUTE, {
-      replace: true,
-      state: { from: ROLE_HOME_ROUTE[user.role] ?? "/home" },
-    });
-  }, [isAuthenticated, isLoading, navigate, user]);
+    if (!sessionReady || !signedIn || !user) return;
+    if (user.role === "admin") {
+      redirectToAdminConsole("/dashboard");
+      return;
+    }
+    // Session valid → role home / KYC (flowchart: Dashboard)
+    navigate(getPostAuthRoute(user), { replace: true });
+  }, [navigate, sessionReady, signedIn, user]);
+
+  // Resume login after 401 → dedicated login route
+  useEffect(() => {
+    if (!sessionReady || signedIn) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth") !== "login") return;
+    const from = params.get("from") || undefined;
+    navigate(from ? `/login?from=${encodeURIComponent(from)}` : "/login", { replace: true });
+  }, [navigate, sessionReady, signedIn]);
+
+  useEffect(() => {
+    if (!signedIn) return;
+    closeAuthDrawer();
+  }, [closeAuthDrawer, signedIn]);
 
   const continueAfterAuth = useCallback(() => {
-    if (!isAuthenticated || !user) return;
+    if (!user) return;
+    if (user.role === "admin") {
+      redirectToAdminConsole("/dashboard");
+      return;
+    }
     navigate(getPostAuthRoute(user));
-  }, [isAuthenticated, navigate, user]);
+  }, [navigate, user]);
 
   const goToLogin = useCallback(() => {
-    if (isAuthenticated && user) {
+    if (signedIn && user) {
       continueAfterAuth();
       return;
     }
-    openAuthDrawer("login", { from: "/home" });
-  }, [continueAfterAuth, isAuthenticated, openAuthDrawer, user]);
+    navigate("/login");
+  }, [continueAfterAuth, navigate, signedIn, user]);
 
   const goToSignup = useCallback(
     (role) => {
-      if (isAuthenticated && user) {
+      if (signedIn && user) {
         continueAfterAuth();
         return;
       }
-      openAuthDrawer("signup", {
-        from: "/home",
-        ...(role ? { defaultRole: role } : {}),
-      });
+      navigate("/signup", role ? { state: { defaultRole: role } } : undefined);
     },
-    [continueAfterAuth, isAuthenticated, openAuthDrawer, user]
+    [continueAfterAuth, navigate, signedIn, user]
   );
 
   return (
@@ -517,68 +709,107 @@ export default function DynamicLandingPage() {
           </motion.button>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {isAuthenticated && user ? (
-              <motion.button
-                type="button"
-                whileHover={reduceMotion ? undefined : { scale: 1.02 }}
-                whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-                onClick={logoutToHome}
-                className="inline-flex items-center px-3 py-2 rounded-control text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
-              >
-                Log out
-              </motion.button>
+            {!sessionReady ? (
+              <span className="inline-flex h-[38px] w-24 animate-pulse rounded-control bg-gray-100" aria-hidden />
+            ) : signedIn ? (
+              <>
+                <motion.button
+                  type="button"
+                  whileHover={reduceMotion ? undefined : { scale: 1.02 }}
+                  whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+                  onClick={() =>
+                    navigate(
+                      user?.role === "owner" ? "/owner/dashboard" : "/home",
+                      user?.role === "owner" ? { state: { openPost: true } } : undefined
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-control bg-secondary-500 px-3 py-2 text-sm font-semibold text-white shadow-soft-sm hover:bg-secondary-600"
+                >
+                  <Plus className="h-4 w-4" />
+                  Post free property
+                </motion.button>
+                <motion.button
+                  type="button"
+                  whileHover={reduceMotion ? undefined : { scale: 1.02 }}
+                  whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+                  onClick={logoutToHome}
+                  className="inline-flex items-center whitespace-nowrap rounded-control px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                >
+                  Log out
+                </motion.button>
+                <GlowButton
+                  reduceMotion={reduceMotion}
+                  onClick={continueAfterAuth}
+                  className="h-[38px] whitespace-nowrap bg-brand-500 px-4 py-2 text-white shadow-soft-sm hover:bg-brand-700"
+                >
+                  Continue
+                  <ArrowRight className="h-4 w-4" />
+                </GlowButton>
+              </>
             ) : (
-              <motion.button
-                type="button"
-                whileHover={reduceMotion ? undefined : { scale: 1.02 }}
-                whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-                onClick={goToLogin}
-                className="inline-flex items-center px-3 py-2 rounded-control text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
-              >
-                Log in
-              </motion.button>
+              <>
+                <motion.button
+                  type="button"
+                  whileHover={reduceMotion ? undefined : { scale: 1.02 }}
+                  whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+                  onClick={goToLogin}
+                  className="inline-flex items-center px-3 py-2 rounded-control text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
+                >
+                  Log in
+                </motion.button>
+                <GlowButton
+                  reduceMotion={reduceMotion}
+                  onClick={() => goToSignup()}
+                  variant="outline"
+                  className="px-4 py-2 h-[38px] border-2 border-brand-500 text-brand-600 hover:bg-brand-50 whitespace-nowrap"
+                >
+                  Get Started
+                </GlowButton>
+              </>
             )}
-            <GlowButton
-              reduceMotion={reduceMotion}
-              onClick={() => goToSignup()}
-              variant="outline"
-              className="px-4 py-2 h-[38px] border-2 border-brand-500 text-brand-600 hover:bg-brand-50 whitespace-nowrap"
-            >
-              Get Started
-            </GlowButton>
           </div>
         </div>
       </motion.header>
 
-      {/* Hero */}
-      <section className="relative pt-28 pb-16 md:pt-36 md:pb-20 overflow-hidden min-h-[88dvh] flex flex-col justify-center">
+      {/* Hero — copy first; listing cards below CTAs so text stays readable */}
+      <section className="relative flex min-h-[min(92dvh,920px)] flex-col justify-center overflow-hidden pb-10 pt-28 md:pb-12 md:pt-32">
         <DotGrid />
-        <FloatingOrb className="w-72 h-72 bg-brand-400/25 top-10 -left-20" scrollYProgress={scrollYProgress} />
-        <FloatingOrb className="w-96 h-96 bg-brand-400/20 top-24 -right-24" delay={1.2} duration={11} scrollYProgress={scrollYProgress} />
-        <FloatingOrb className="w-64 h-64 bg-secondary-400/20 bottom-0 left-1/3" delay={0.6} scrollYProgress={scrollYProgress} />
+        <FloatingOrb className="-left-20 top-10 h-72 w-72 bg-brand-400/25" scrollYProgress={scrollYProgress} />
+        <FloatingOrb
+          className="-right-24 top-24 h-96 w-96 bg-brand-400/20"
+          delay={1.2}
+          duration={11}
+          scrollYProgress={scrollYProgress}
+        />
+        <FloatingOrb
+          className="bottom-0 left-1/3 h-64 w-64 bg-secondary-400/20"
+          delay={0.6}
+          scrollYProgress={scrollYProgress}
+        />
 
-        <div className="relative max-w-5xl mx-auto px-4 text-center">
-          {HERO_FLOATING_CARDS.map((card) => (
-            <HeroFloatingCard key={card.area} card={card} reduceMotion={reduceMotion} />
-          ))}
-
-          <motion.div style={{ y: heroParallax }} variants={stagger} initial="hidden" animate="visible">
+        <div className="relative z-10 mx-auto w-full max-w-4xl px-4 text-center">
+          <motion.div
+            variants={heroStagger}
+            initial="hidden"
+            animate="visible"
+            className="relative mx-auto max-w-2xl"
+          >
             <motion.span
               variants={springPop}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 border border-brand-100 text-brand-700 text-xs font-semibold shadow-soft-sm mb-3"
+              className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand-100 bg-white/90 px-4 py-1.5 text-xs font-semibold text-brand-700 shadow-soft-sm"
             >
               <motion.span
                 animate={reduceMotion ? undefined : { rotate: [0, 15, -15, 0], scale: [1, 1.2, 1] }}
                 transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 3 }}
               >
-                <Sparkles className="w-3.5 h-3.5" />
+                <Sparkles className="size-3.5" />
               </motion.span>
               Your Town&apos;s No-Brokerage Property Marketplace
             </motion.span>
 
             <motion.span
               variants={fadeUp}
-              className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100/90 border border-gray-200/80 text-gray-500 text-[10px] sm:text-xs font-medium tracking-wide mb-6"
+              className="mb-6 inline-flex items-center rounded-full border border-gray-200/80 bg-gray-100/90 px-3 py-1 text-[10px] font-medium tracking-wide text-gray-500 sm:text-xs"
             >
               {STACK_RACK_TAG}
             </motion.span>
@@ -589,7 +820,7 @@ export default function DynamicLandingPage() {
 
             <motion.p
               variants={fadeUp}
-              className="mt-5 text-base md:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed"
+              className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-gray-600 md:text-lg"
             >
               {APP_NAME} connects {APP_LOCATION} renters and buyers directly with
               property owners — rich photos, transparent pricing, and zero
@@ -597,107 +828,82 @@ export default function DynamicLandingPage() {
             </motion.p>
 
             <motion.div
-              variants={fadeUp}
-              className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3"
-            >
-              <GlowButton
-                reduceMotion={reduceMotion}
-                onClick={() => goToSignup()}
-                className="w-full sm:w-auto px-8 py-3.5 text-white bg-brand-500 hover:bg-brand-700 shadow-soft-lg hover:shadow-brand-glow"
-              >
-                Get Started
-                <motion.span
-                  animate={reduceMotion ? undefined : { x: [0, 4, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                >
-                  <ArrowRight className="w-4 h-4" />
-                </motion.span>
-              </GlowButton>
-              <GlowButton
-                reduceMotion={reduceMotion}
-                variant="outline"
-                onClick={() => goToSignup()}
-                className="w-full sm:w-auto px-8 py-3.5 border-2 border-gray-200 bg-white/80 hover:border-brand-300 hover:bg-white text-gray-800"
-              >
-                Create Free Account
-              </GlowButton>
-            </motion.div>
-
-            <motion.div
               variants={stagger}
-              className="mt-10 flex flex-wrap items-center justify-center gap-3"
+              className="mt-8 flex flex-wrap items-center justify-center gap-3"
             >
               {[
                 { icon: Percent, label: "Zero Brokerage" },
                 { icon: ShieldCheck, label: "Direct Owner Contact" },
                 { icon: Building2, label: "Your Town Focused" },
-              ].map((badge, i) => (
+              ].map((badge) => (
                 <motion.span
                   key={badge.label}
                   variants={springPop}
                   whileHover={reduceMotion ? undefined : { y: -4, scale: 1.05 }}
-                  custom={i}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/90 border border-gray-100 text-xs font-medium text-gray-700 shadow-soft-sm"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-100 bg-white/95 px-3.5 py-2 text-xs font-medium text-gray-700 shadow-soft-sm"
                 >
-                  <badge.icon className="w-3.5 h-3.5 text-brand-600" />
+                  <badge.icon className="size-3.5 text-brand-600" />
                   {badge.label}
                 </motion.span>
               ))}
             </motion.div>
           </motion.div>
+
+          <CreativeListingsStage reduceMotion={reduceMotion} />
         </div>
       </section>
 
       <MarqueeStrip />
 
       {/* Stats */}
-      <RevealSection className="max-w-4xl mx-auto px-4 py-14 md:py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-4 rounded-[1.25rem] bg-white border border-gray-100 shadow-soft-md py-10 px-6">
+      <RevealSection className="mx-auto max-w-4xl px-4 py-8 md:py-10">
+        <motion.div
+          variants={fadeScale}
+          whileHover={reduceMotion ? undefined : { y: -2 }}
+          className="grid grid-cols-1 gap-8 rounded-[1.25rem] border border-gray-100 bg-white px-6 py-8 shadow-soft-md sm:grid-cols-3 sm:gap-4 sm:py-9"
+        >
           {STATS.map((stat) => (
             <AnimatedStat key={stat.label} {...stat} reduceMotion={reduceMotion} />
           ))}
-        </div>
+        </motion.div>
       </RevealSection>
 
       {/* Why Us */}
-      <RevealSection className="max-w-6xl mx-auto px-4 py-16 md:py-20">
+      <RevealSection className="mx-auto max-w-6xl px-4 py-10 md:py-12">
         <SectionHeading
           title={`Why Choose ${APP_NAME}`}
           subtitle={`A simpler, fairer way to find and list property in ${APP_LOCATION}`}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {WHY_US.map((item) => (
             <TiltCard
               key={item.title}
               glow={item.glow}
-              className={`border border-white/60 bg-gradient-to-br ${item.accent} p-6 shadow-soft-md`}
+              className={`border border-gray-100 bg-gradient-to-br ${item.accent} p-6 shadow-soft-md`}
             >
-              <motion.span
-                className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white text-brand-600 shadow-soft-sm mb-4"
-                whileHover={reduceMotion ? undefined : { rotate: [0, -8, 8, 0], scale: 1.08 }}
-                transition={{ duration: 0.5 }}
-              >
-                <item.icon className="w-6 h-6" />
-              </motion.span>
-              <p className="text-sm font-semibold text-foreground">{item.title}</p>
-              <p className="mt-2 text-xs text-gray-600 leading-relaxed">{item.description}</p>
+              <span className="mb-4 inline-flex size-12 items-center justify-center rounded-full bg-white text-brand-600 shadow-soft-sm">
+                <item.icon className="size-6" aria-hidden />
+              </span>
+              <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+              <p className="mt-2 text-sm leading-relaxed text-gray-600">{item.description}</p>
             </TiltCard>
           ))}
         </div>
       </RevealSection>
 
       {/* How It Works */}
-      <RevealSection className="max-w-6xl mx-auto px-4 py-16 md:py-20">
+      <RevealSection className="mx-auto max-w-6xl px-4 py-10 md:py-12">
         <motion.div
           variants={fadeScale}
-          className="rounded-[1.25rem] bg-gradient-to-br from-brand-900 via-brand-800 to-brand-900 p-8 md:p-12 shadow-soft-lg overflow-hidden relative"
+          className="relative overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-brand-900 via-brand-800 to-brand-900 p-8 shadow-soft-lg md:p-12"
         >
           <FloatingOrb className="w-56 h-56 bg-white/10 top-0 right-0" duration={12} />
           <motion.div
-            className="absolute inset-0 opacity-20 pointer-events-none"
+            className="pointer-events-none absolute inset-0 opacity-20"
             style={{
-              backgroundImage: "linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)",
+              backgroundImage:
+                "linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)",
               backgroundSize: "40px 40px",
             }}
             animate={reduceMotion ? undefined : { backgroundPosition: ["0px 0px", "40px 40px"] }}
@@ -707,21 +913,21 @@ export default function DynamicLandingPage() {
           <div className="relative">
             <motion.h2
               variants={fadeUp}
-              className="text-center text-2xl md:text-3xl font-semibold text-white mb-2"
+              className="mb-2 text-center text-2xl font-semibold text-white md:text-3xl"
             >
               How It Works
             </motion.h2>
             <motion.p
               variants={fadeUp}
-              className="text-center text-sm text-brand-100 mb-10 max-w-lg mx-auto"
+              className="mx-auto mb-10 max-w-lg text-center text-sm text-brand-100"
             >
               Everything unlocks after you sign in — browse listings, save
               favourites, and manage properties from one place.
             </motion.p>
 
-            <div className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="relative grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {!reduceMotion && (
-                <div className="hidden lg:block absolute top-8 left-[12%] right-[12%] h-0.5 bg-white/20 overflow-hidden rounded-full">
+                <div className="absolute left-[12%] right-[12%] top-8 hidden h-0.5 overflow-hidden rounded-full bg-white/20 lg:block">
                   <motion.div
                     className="h-full bg-gradient-to-r from-brand-300 to-brand-200"
                     initial={{ width: "0%" }}
@@ -736,19 +942,15 @@ export default function DynamicLandingPage() {
                 <motion.div
                   key={item.step}
                   variants={springPop}
-                  whileHover={reduceMotion ? undefined : { y: -6, scale: 1.02 }}
+                  whileHover={reduceMotion ? undefined : { y: -6 }}
                   custom={i}
-                  className="relative bg-white/95 backdrop-blur rounded-card p-5 shadow-soft-md"
+                  className="relative rounded-card border border-white/40 bg-white p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_24px_rgba(0,0,0,0.12)]"
                 >
-                  <motion.span
-                    className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-100 text-xs font-bold text-brand-600"
-                    animate={reduceMotion ? undefined : { scale: [1, 1.08, 1] }}
-                    transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }}
-                  >
+                  <span className="inline-flex size-8 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
                     {item.step}
-                  </motion.span>
-                  <p className="mt-2 font-semibold text-foreground">{item.title}</p>
-                  <p className="mt-1.5 text-xs text-gray-500 leading-relaxed">{item.description}</p>
+                  </span>
+                  <p className="mt-2 font-semibold text-gray-900">{item.title}</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-gray-600">{item.description}</p>
                 </motion.div>
               ))}
             </div>
@@ -757,71 +959,53 @@ export default function DynamicLandingPage() {
       </RevealSection>
 
       {/* Audiences */}
-      <RevealSection className="max-w-6xl mx-auto px-4 py-16 md:py-20">
+      <RevealSection className="mx-auto max-w-6xl px-4 py-10 md:py-12">
         <SectionHeading
           title={`Built for Everyone in ${APP_LOCATION}`}
           subtitle={`Whether you're searching or listing, ${APP_NAME} has you covered`}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {AUDIENCES.map((audience, i) => (
             <motion.div
               key={audience.title}
               variants={fadeUp}
-              whileHover={reduceMotion ? undefined : { y: -6 }}
-              className="rounded-card bg-white border border-gray-100 p-8 shadow-soft-md relative overflow-hidden group"
+              whileHover={reduceMotion ? undefined : { y: -4 }}
+              className="group relative overflow-hidden rounded-card border border-gray-100 bg-white p-8 shadow-soft-md"
             >
-              <motion.div
-                className={`absolute inset-0 bg-gradient-to-br ${audience.gradient}`}
-                initial={{ opacity: 0 }}
-                whileHover={{ opacity: 0.06 }}
-                transition={{ duration: 0.35 }}
-              />
-              <motion.div
-                className="absolute -right-6 -top-6 w-32 h-32 rounded-full bg-brand-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                animate={reduceMotion ? undefined : { scale: [1, 1.15, 1] }}
-                transition={{ duration: 4, repeat: Infinity, delay: i * 0.5 }}
+              <div
+                className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${audience.gradient} opacity-0 transition-opacity duration-300 group-hover:opacity-[0.06]`}
               />
               <div className="relative">
-                <motion.span
-                  className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-brand-50 text-brand-600 mb-4"
-                  animate={reduceMotion ? undefined : { y: [0, -5, 0] }}
-                  transition={{ duration: 3, repeat: Infinity, delay: i * 0.4 }}
-                >
-                  <audience.icon className="w-7 h-7" />
-                </motion.span>
-                <h3 className="text-lg font-semibold text-foreground">{audience.title}</h3>
+                <span className="mb-4 inline-flex size-14 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+                  <audience.icon className="size-7" aria-hidden />
+                </span>
+                <h3 className="text-lg font-semibold text-gray-900">{audience.title}</h3>
                 <ul className="mt-4 space-y-2.5">
-                  {audience.points.map((point, pi) => (
-                    <motion.li
-                      key={point}
-                      initial={{ opacity: 0, x: -12 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: pi * 0.08 }}
-                      className="flex items-start gap-2 text-sm text-gray-600"
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-accent-yellow-text mt-0.5 flex-shrink-0" />
+                  {audience.points.map((point) => (
+                    <li key={point} className="flex items-start gap-2 text-sm text-gray-600">
+                      <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-accent-yellow-text" />
                       {point}
-                    </motion.li>
+                    </li>
                   ))}
                 </ul>
-                <GlowButton
-                  reduceMotion={reduceMotion}
-                  onClick={() => goToSignup(audience.role)}
-                  className="mt-6 px-5 py-2.5 text-white bg-brand-500 hover:bg-brand-700 shadow-soft-sm"
+                <button
+                  type="button"
+                  onClick={() => (signedIn ? continueAfterAuth() : goToSignup(audience.role))}
+                  className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 transition-colors hover:text-brand-900"
                 >
-                  {audience.cta}
-                </GlowButton>
+                  {signedIn ? "Continue" : audience.cta}
+                  <ArrowRight className="size-4" />
+                </button>
               </div>
             </motion.div>
           ))}
         </div>
       </RevealSection>
 
-      {/* Final CTA */}
-      <RevealSection className="max-w-4xl mx-auto px-4 py-16 md:py-24">
-        <motion.div variants={fadeScale} className="relative p-[2px] rounded-[1.5rem] overflow-hidden">
+      {/* Final CTA — distinct from hero */}
+      <RevealSection className="mx-auto max-w-4xl px-4 pb-14 pt-6 md:pb-20 md:pt-8">
+        <motion.div variants={fadeScale} className="relative overflow-hidden rounded-[1.5rem] p-[2px]">
           {!reduceMotion && (
             <motion.div
               className="absolute inset-0 bg-gradient-to-r from-brand-500 via-secondary-500 to-brand-500 bg-[length:200%_100%]"
@@ -829,38 +1013,46 @@ export default function DynamicLandingPage() {
               transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
             />
           )}
-          <div className="relative text-center rounded-[calc(1.5rem-2px)] bg-white px-6 py-12 md:px-12 md:py-16 shadow-soft-lg overflow-hidden">
+          <div className="relative overflow-hidden rounded-[calc(1.5rem-2px)] bg-gradient-to-b from-slate-50 to-white px-6 py-12 text-center shadow-soft-lg md:px-12 md:py-14">
             <FloatingOrb className="w-48 h-48 bg-brand-300/20 -top-10 -right-10" delay={0.3} />
-            <motion.div
-              animate={reduceMotion ? undefined : { y: [0, -8, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-              className="relative"
-            >
-              <h2 className="font-display text-2xl md:text-4xl font-semibold text-foreground">
+            <div className="relative">
+              <h2 className="font-display text-2xl font-semibold text-gray-900 md:text-4xl">
                 Ready to get started?
               </h2>
-              <p className="mt-3 text-sm md:text-base text-gray-500 max-w-lg mx-auto">
+              <p className="mx-auto mt-3 max-w-lg text-sm text-gray-600 md:text-base">
                 Join {APP_NAME} today. Listings, favourites, property stories,
                 and owner dashboards — all available after you log in.
               </p>
-              <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-                <GlowButton
-                  reduceMotion={reduceMotion}
-                  onClick={() => goToSignup()}
-                  className="w-full sm:w-auto px-8 py-3.5 text-white bg-brand-500 hover:bg-brand-700 shadow-soft-md"
-                >
-                  Create Free Account
-                </GlowButton>
-                <GlowButton
-                  reduceMotion={reduceMotion}
-                  variant="outline"
-                  onClick={goToLogin}
-                  className="w-full sm:w-auto px-8 py-3.5 text-brand-700 hover:bg-brand-50"
-                >
-                  I already have an account
-                </GlowButton>
+              <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                {signedIn ? (
+                  <GlowButton
+                    reduceMotion={reduceMotion}
+                    onClick={continueAfterAuth}
+                    className="w-full bg-brand-500 px-8 py-3.5 text-white shadow-soft-md hover:bg-brand-700 sm:w-auto"
+                  >
+                    Continue to {APP_NAME}
+                  </GlowButton>
+                ) : (
+                  <GlowButton
+                    reduceMotion={reduceMotion}
+                    onClick={() => goToSignup()}
+                    className="w-full bg-brand-500 px-8 py-3.5 text-white shadow-soft-md hover:bg-brand-700 sm:w-auto"
+                  >
+                    Create free account
+                    <ArrowRight className="size-4" />
+                  </GlowButton>
+                )}
               </div>
-            </motion.div>
+              {!signedIn ? (
+                <button
+                  type="button"
+                  onClick={goToLogin}
+                  className="mt-4 text-sm font-medium text-gray-600 underline-offset-4 hover:text-brand-700 hover:underline"
+                >
+                  Already have an account? Log in
+                </button>
+              ) : null}
+            </div>
           </div>
         </motion.div>
       </RevealSection>

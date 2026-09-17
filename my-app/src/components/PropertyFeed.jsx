@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MapPin, Bed, Bath, Square, Heart, Phone, RotateCcw, SlidersHorizontal, ChevronRight, ChevronLeft, Home, X } from 'lucide-react';
+import { MapPin, Bed, Bath, Square, Heart, Phone, RotateCcw, SlidersHorizontal, ChevronRight, ChevronLeft, Home, X, LayoutGrid, Map } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { propertyAPI, activityAPI } from '../services/api';
 import { useLocationContext } from '../context/LocationContext';
-import { buildPropertySearchQuery, getLocationCityFilter } from '@/lib/buildPropertySearchQuery';
+import { buildPropertySearchQuery, getLocationFilterParams, getLocationCityFilter } from '@/lib/buildPropertySearchQuery';
+import { LocationCascadeFilter } from '@/components/shared/LocationCascadeFilter';
 import { criteriaFromFeedSearch, syncSearchAlert } from '@/lib/searchAlerts';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, ROLE_HOME_ROUTE } from '@/context/AuthContext';
 import { PropertyCard } from './PropertyCard';
 import { getApiErrorMessage } from '@/lib/apiErrors';
 import LoadErrorState from "@/components/shared/LoadErrorState";
@@ -15,16 +16,34 @@ import { LocationPicker } from "@/components/shared/LocationPicker";
 import { PropertyCardSkeletonGrid, PropertyCardSkeleton } from "@/components/shared/PropertyCardSkeleton";
 import TownLoader from "@/components/shared/TownLoader";
 import { MobileSwipeDeck } from '@/components/property/MobileSwipeDeck';
+import { PropertyMapView } from '@/components/property/PropertyMapView';
 
 import AppNavbar from "@/components/shared/AppNavbar";
 
 import { TownExchangeLogo } from './brand/TownExchangeLogo';
+import { WithTooltip } from "@/components/ui/WithTooltip";
+import { useToast } from "@/components/ui/toast";
+import { useCompare } from "@/context/CompareContext";
+import { Dropdown } from "@/components/ui/dropdown";
+import { Pagination } from "@/components/ui/pagination";
+import { useClientPagination } from "@/hooks/useClientPagination";
+
+const SORT_OPTIONS = [
+  { value: "recent", label: "Most recent" },
+  { value: "price_low", label: "Price: Low to High" },
+  { value: "price_high", label: "Price: High to Low" },
+];
+
+const FEED_PAGE_SIZE = 12;
 
 export default function PropertyFeed() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { selectedLocation, locationLabel } = useLocationContext();
+  const { toast } = useToast();
+  const { toggle: toggleCompare, isComparing } = useCompare();
+  const homeRoute = user ? ROLE_HOME_ROUTE[user.role] : "/home";
+  const { selectedLocation, locationLabel, setSelectedLocation } = useLocationContext();
   const [category, setCategory] = useState('All Properties');
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +62,8 @@ export default function PropertyFeed() {
   const reduceMotion = useReducedMotion() ?? false;
 
   const [sortBy, setSortBy] = useState('recent');
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'map'
+  const [mapSelectedId, setMapSelectedId] = useState(null);
   const [filters, setFilters] = useState({
     bhkType: '',
     minPrice: '',
@@ -51,8 +72,24 @@ export default function PropertyFeed() {
     propertyType: '',
     furnishing: '',
     parking: false,
-    amenities: []
+    amenities: [],
+    postedBy: '',
+    apartmentType: '',
   });
+
+  const feedPagination = useClientPagination(properties, FEED_PAGE_SIZE);
+  const {
+    page: feedPage,
+    setPage: setFeedPage,
+    pageCount: feedPageCount,
+    pageItems: pagedProperties,
+    pageSize: feedPageSize,
+    totalItems: feedTotal,
+  } = feedPagination;
+
+  useEffect(() => {
+    setFeedPage(1);
+  }, [sortBy, category, filters, selectedLocation?.id, setFeedPage]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -65,23 +102,74 @@ export default function PropertyFeed() {
   }, []);
 
   useEffect(() => {
-    if (location.state?.category) {
-      setCategory(location.state.category);
+    if (isMobile && viewMode === 'map') setViewMode('list');
+  }, [isMobile, viewMode]);
+
+  useEffect(() => {
+    const state = location.state;
+    if (!state) return;
+
+    if (state.category !== undefined && state.category !== null) {
+      setCategory(state.category || "All Properties");
     }
-    if (location.state?.propertyFor || location.state?.propertyType) {
+
+    if (state.resetFilters) {
+      setFilters({
+        bhkType: "",
+        minPrice: "",
+        maxPrice: "",
+        propertyFor: state.propertyFor || "",
+        propertyType: state.propertyType || "",
+        furnishing: "",
+        parking: false,
+        amenities: [],
+        postedBy: "",
+        apartmentType: "",
+      });
+    } else if (
+      state.propertyFor !== undefined ||
+      state.propertyType !== undefined ||
+      state.bhkType !== undefined ||
+      state.minPrice !== undefined ||
+      state.maxPrice !== undefined ||
+      state.furnishing !== undefined ||
+      state.amenities !== undefined ||
+      state.postedBy !== undefined ||
+      state.apartmentType !== undefined
+    ) {
       setFilters((prev) => ({
         ...prev,
-        propertyFor: location.state.propertyFor || prev.propertyFor,
-        propertyType: location.state.propertyType || prev.propertyType,
+        ...(state.propertyFor !== undefined
+          ? { propertyFor: state.propertyFor || "" }
+          : {}),
+        ...(state.propertyType !== undefined
+          ? { propertyType: state.propertyType || "" }
+          : {}),
+        ...(state.bhkType !== undefined ? { bhkType: state.bhkType || "" } : {}),
+        ...(state.minPrice !== undefined ? { minPrice: state.minPrice || "" } : {}),
+        ...(state.maxPrice !== undefined ? { maxPrice: state.maxPrice || "" } : {}),
+        ...(state.furnishing !== undefined
+          ? { furnishing: state.furnishing || "" }
+          : {}),
+        ...(state.amenities !== undefined
+          ? {
+              amenities: Array.isArray(state.amenities) ? state.amenities : prev.amenities,
+            }
+          : {}),
+        ...(state.postedBy !== undefined ? { postedBy: state.postedBy || "" } : {}),
+        ...(state.apartmentType !== undefined
+          ? { apartmentType: state.apartmentType || "" }
+          : {}),
       }));
     }
-    if (location.state?.query) {
-      setSearchQuery(location.state.query);
-      handleSearch({ preventDefault: () => {} }, location.state.query);
+
+    if (state.query) {
+      setSearchQuery(state.query);
+      handleSearch({ preventDefault: () => {} }, state.query);
     }
-    // Only ever meant to run once for the state that arrived with this navigation.
+    // Re-apply whenever this navigation entry changes (home chips → feed).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.state]);
+  }, [location.key]);
 
   useEffect(() => {
     fetchProperties();
@@ -108,8 +196,7 @@ export default function PropertyFeed() {
       if (filters.propertyFor) params.property_for = filters.propertyFor;
       if (filters.propertyType) params.property_type = filters.propertyType;
       if (filters.furnishing) params.furnishing_status = filters.furnishing;
-      const cityFilter = getLocationCityFilter(selectedLocation);
-      if (cityFilter) params.city = cityFilter;
+      Object.assign(params, getLocationFilterParams(selectedLocation));
 
       const data = await propertyAPI.getProperties(params);
 
@@ -125,6 +212,28 @@ export default function PropertyFeed() {
 
       if (filters.parking) {
         filteredData = filteredData.filter(p => p.parking > 0);
+      }
+
+      if (filters.amenities?.length) {
+        filteredData = filteredData.filter((p) => {
+          const list = Array.isArray(p.amenities) ? p.amenities : [];
+          return filters.amenities.every((a) =>
+            list.some((item) => String(item).toLowerCase().includes(a.toLowerCase()) || a.toLowerCase().includes(String(item).toLowerCase()))
+          );
+        });
+      }
+
+      if (filters.postedBy) {
+        filteredData = filteredData.filter(
+          (p) => String(p.user_type || "").toLowerCase() === filters.postedBy.toLowerCase()
+        );
+      }
+
+      if (filters.apartmentType && filters.apartmentType !== "Commercial") {
+        const needle = filters.apartmentType.toLowerCase();
+        filteredData = filteredData.filter((p) =>
+          String(p.apartment_type || "").toLowerCase().includes(needle.replace("/land", ""))
+        );
       }
 
       setProperties(filteredData);
@@ -211,7 +320,7 @@ export default function PropertyFeed() {
       );
     } catch (err) {
       console.error('Error toggling favourite:', err);
-      alert(getApiErrorMessage(err, 'Failed to update favourite. Please try again.'));
+      toast(getApiErrorMessage(err, 'Failed to update favourite. Please try again.'), 'error');
     }
   };
 
@@ -256,9 +365,26 @@ export default function PropertyFeed() {
       propertyType: '',
       furnishing: '',
       parking: false,
-      amenities: []
+      amenities: [],
+      postedBy: '',
+      apartmentType: '',
     });
     setSortBy('recent');
+  };
+
+  const removeFilter = (key) => {
+    setFilters((prev) => {
+      const next = { ...prev };
+      if (key === 'parking') next.parking = false;
+      else if (key === 'amenities') next.amenities = [];
+      else if (key === 'price') {
+        next.minPrice = '';
+        next.maxPrice = '';
+      } else {
+        next[key] = '';
+      }
+      return next;
+    });
   };
 
   const formatPrice = (price) => {
@@ -300,16 +426,17 @@ export default function PropertyFeed() {
   const MobileSwipeCard = ({ property, isSwipeable = false }) => (
     <div
       className={`bg-white rounded-card shadow-soft-sm border border-gray-100 hover:shadow-soft-lg overflow-hidden flex flex-col transition-all duration-200 ${
-        isSwipeable ? 'h-[min(calc(100dvh-18rem),500px)]' : 'hover:-translate-y-1'
+        isSwipeable ? 'h-[min(calc(100dvh-18rem),500px)]' : 'hover:-translate-y-1 cursor-pointer'
       }`}
+      onClick={!isSwipeable ? (e) => handlePropertyClick(property.id, e) : undefined}
     >
       <div
-        className={`relative overflow-hidden ${
+        className={`relative overflow-hidden bg-gray-100 ${
           isSwipeable ? 'h-2/5' : 'h-36 sm:h-40 md:h-44'
         }`}
       >
         <div
-          className="w-full h-full cursor-pointer"
+          className="w-full h-full cursor-pointer overflow-hidden"
           onClick={(e) => handleImageClick(property.id, e)}
           onTouchEnd={(e) => {
             e.stopPropagation();
@@ -320,7 +447,7 @@ export default function PropertyFeed() {
               ? property.images[0].url
               : 'https://via.placeholder.com/400x300?text=No+Image'}
             alt={property.apartment_name || 'Property'}
-            className="w-full h-full object-cover pointer-events-none"
+            className="h-full w-full max-w-full object-cover pointer-events-none"
             onError={(e) => {
               e.target.src = 'https://via.placeholder.com/400x300?text=Image+Not+Found';
             }}
@@ -332,33 +459,55 @@ export default function PropertyFeed() {
             For {property.property_for}
           </div>
         )}
-        <button
-          onClick={(e) => handleSaveProperty(property.id, e)}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            handleSaveProperty(property.id, e);
-          }}
-          className="absolute top-2 right-2 bg-white p-1.5 rounded-full hover:bg-gray-50 transition-colors shadow-soft-sm z-10"
+        <WithTooltip
+          label={property.is_favourite ? "Remove from favourites" : "Save to favourites"}
         >
-          <Heart
-            size={16}
-            className={property.is_favourite ? 'fill-red-500 text-red-500' : 'text-gray-600'}
-          />
-        </button>
+          <button
+            onClick={(e) => handleSaveProperty(property.id, e)}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              handleSaveProperty(property.id, e);
+            }}
+            className="absolute top-2 right-2 bg-white p-1.5 rounded-full hover:bg-gray-50 transition-colors shadow-soft-sm z-10"
+            aria-label={property.is_favourite ? "Remove from favourites" : "Save to favourites"}
+          >
+            <Heart
+              size={16}
+              className={property.is_favourite ? 'fill-red-500 text-red-500' : 'text-gray-600'}
+            />
+          </button>
+        </WithTooltip>
       </div>
 
-      <div className={`p-3 flex flex-col flex-grow ${isSwipeable ? 'overflow-y-auto' : ''}`}>
+        <div className={`p-3 flex flex-col flex-grow ${isSwipeable ? 'overflow-y-auto' : ''}`}>
         <div className="mb-2">
           <h3 className="font-semibold text-sm text-gray-900 mb-1 line-clamp-2 leading-tight">
-            {property.bhk_type || 'N/A'} {property.apartment_type || 'Property'}
-            {property.apartment_name && ` in ${property.apartment_name}`}
+            {property.property_type === 'Commercial'
+              ? `${property.commercial_subtype || property.apartment_type || 'Commercial'}${
+                  property.apartment_name ? ` · ${property.apartment_name}` : ''
+                }`
+              : `${property.bhk_type || 'N/A'} ${property.apartment_type || 'Property'}${
+                  property.apartment_name ? ` in ${property.apartment_name}` : ''
+                }`}
           </h3>
-          <p className="text-lg font-bold text-brand-600">
+          <p className="text-lg font-bold text-brand-700">
             {formatPrice(property.expected_price)}
             {property.property_for === 'Rent/Lease' && property.expected_price && (
               <span className="text-xs text-gray-500 font-normal">/month</span>
             )}
           </p>
+          {property.property_for !== 'Rent/Lease' &&
+            property.carpet_area > 0 &&
+            property.expected_price > 0 && (
+              <p className="text-[11px] font-medium text-gray-500">
+                ₹{Math.round(property.expected_price / property.carpet_area).toLocaleString('en-IN')}/sqft
+              </p>
+            )}
+          {property.verification_tier === 'verified' ? (
+            <span className="mt-1 inline-flex items-center rounded-full bg-trust-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+              Verified
+            </span>
+          ) : null}
         </div>
 
         <div className="flex items-center text-gray-600 mb-2">
@@ -369,23 +518,39 @@ export default function PropertyFeed() {
         </div>
 
         <div className="flex items-center gap-3 mb-2 text-gray-600 flex-wrap">
-          {property.bhk_type && property.bhk_type.split(' ')[0] !== 'Studio' && (
-            <div className="flex items-center gap-1">
-              <Bed size={14} className="text-gray-400" />
-              <span className="text-xs">{property.bhk_type.split(' ')[0]}</span>
-            </div>
-          )}
-          {property.bathrooms !== undefined && property.bathrooms > 0 && (
-            <div className="flex items-center gap-1">
-              <Bath size={14} className="text-gray-400" />
-              <span className="text-xs">{property.bathrooms}</span>
-            </div>
-          )}
-          {property.carpet_area && property.carpet_area > 0 && (
-            <div className="flex items-center gap-1">
-              <Square size={14} className="text-gray-400" />
-              <span className="text-xs">{property.carpet_area} sqft</span>
-            </div>
+          {property.property_type === 'Commercial' ? (
+            <>
+              {property.carpet_area > 0 ? (
+                <div className="flex items-center gap-1">
+                  <Square size={14} className="text-gray-400" />
+                  <span className="text-xs">{property.carpet_area} sqft</span>
+                </div>
+              ) : null}
+              {property.frontage_ft ? (
+                <span className="text-xs">{property.frontage_ft} ft frontage</span>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {property.bhk_type && property.bhk_type.split(' ')[0] !== 'Studio' && (
+                <div className="flex items-center gap-1">
+                  <Bed size={14} className="text-gray-400" />
+                  <span className="text-xs">{property.bhk_type.split(' ')[0]}</span>
+                </div>
+              )}
+              {property.bathrooms !== undefined && property.bathrooms > 0 && (
+                <div className="flex items-center gap-1">
+                  <Bath size={14} className="text-gray-400" />
+                  <span className="text-xs">{property.bathrooms}</span>
+                </div>
+              )}
+              {property.carpet_area && property.carpet_area > 0 && (
+                <div className="flex items-center gap-1">
+                  <Square size={14} className="text-gray-400" />
+                  <span className="text-xs">{property.carpet_area} sqft</span>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -395,52 +560,76 @@ export default function PropertyFeed() {
         </div>
 
         <div className="mt-auto">
-          <div className="grid grid-cols-3 gap-1.5">
-            <button
-              onClick={(e) => handlePropertyClick(property.id, e)}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                handlePropertyClick(property.id, e);
-              }}
-              className="col-span-2 py-1.5 px-2 rounded-control text-white font-medium text-xs transition-colors flex items-center justify-center gap-1 z-10 bg-brand-500 hover:bg-brand-700"
-            >
-              <span>View Details</span>
-            </button>
-
-            <button
-              onClick={(e) => handleCallClick(e)}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                handleCallClick(e);
-              }}
-              className="py-1.5 px-2 rounded-control border border-emerald-600 text-emerald-600 hover:bg-emerald-50 font-medium text-xs transition-colors flex items-center justify-center z-10"
-            >
-              <Phone size={14} />
-            </button>
-          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCallClick(e);
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleCallClick(e);
+            }}
+            className="flex w-full items-center justify-center gap-1.5 rounded-control border border-emerald-600 py-1.5 px-2 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 z-10"
+          >
+            <Phone size={14} />
+            Call
+          </button>
         </div>
       </div>
     </div>
   );
 
-  const hasActiveFilters = filters.bhkType || filters.minPrice || filters.maxPrice || filters.propertyFor || filters.furnishing || filters.parking;
+  const hasActiveFilters = Boolean(
+    filters.bhkType ||
+      filters.minPrice ||
+      filters.maxPrice ||
+      filters.propertyFor ||
+      filters.propertyType ||
+      filters.furnishing ||
+      filters.parking ||
+      filters.postedBy ||
+      filters.apartmentType ||
+      (filters.amenities && filters.amenities.length > 0)
+  );
+
+  const activeFilterChips = [];
+  if (filters.propertyFor) {
+    activeFilterChips.push({
+      key: 'propertyFor',
+      label: filters.propertyFor === 'Sell' ? 'For Sale' : filters.propertyFor,
+    });
+  }
+  if (filters.bhkType) activeFilterChips.push({ key: 'bhkType', label: filters.bhkType });
+  if (filters.furnishing) activeFilterChips.push({ key: 'furnishing', label: filters.furnishing });
+  if (filters.propertyType) activeFilterChips.push({ key: 'propertyType', label: filters.propertyType });
+  if (filters.apartmentType) activeFilterChips.push({ key: 'apartmentType', label: filters.apartmentType });
+  if (filters.postedBy) activeFilterChips.push({ key: 'postedBy', label: filters.postedBy });
+  if (filters.minPrice || filters.maxPrice) {
+    const min = filters.minPrice ? `₹${Number(filters.minPrice).toLocaleString('en-IN')}` : 'Any';
+    const max = filters.maxPrice ? `₹${Number(filters.maxPrice).toLocaleString('en-IN')}` : 'Any';
+    activeFilterChips.push({ key: 'price', label: `${min} – ${max}` });
+  }
+  if (filters.parking) activeFilterChips.push({ key: 'parking', label: 'Parking' });
+  if (filters.amenities?.length) {
+    activeFilterChips.push({ key: 'amenities', label: `${filters.amenities.length} amenities` });
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       <AppNavbar
         variant="inner"
-        backTo="/home"
-        maxWidth="7xl"
-        logoTagline="Property Marketplace"
+        backTo={homeRoute}
+        maxWidth="full"
         showLocation
       />
 
       {/* Breadcrumbs - Desktop Only */}
       <div className="hidden md:block bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-3">
+        <div className="max-w-[90rem] mx-auto px-4 py-3">
           <nav className="flex items-center space-x-2 text-sm">
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate(homeRoute)}
               className="flex items-center gap-1.5 text-gray-600 hover:text-brand-600 transition-colors group"
             >
               <Home size={16} className="group-hover:scale-110 transition-transform" />
@@ -454,7 +643,7 @@ export default function PropertyFeed() {
 
       {/* Combined Search and Filter Section */}
       <div className="bg-white border-b border-gray-200 sticky top-[48px] sm:top-[52px] md:top-[85px] z-40 shadow-soft-sm">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+        <div className="max-w-[90rem] mx-auto px-3 sm:px-4 py-3 sm:py-4">
           {/* Search and Filter Row */}
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-3">
             {/* Search Bar */}
@@ -469,66 +658,105 @@ export default function PropertyFeed() {
               className="flex-1 min-w-0 w-full"
             />
 
-            {/* Filter Button */}
-            <button
-              onClick={() => setShowFilterModal(true)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-sm font-medium whitespace-nowrap transition-all border ${
-                hasActiveFilters
-                  ? 'bg-brand-50 text-brand-700 border-brand-300 shadow-soft-sm'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <SlidersHorizontal size={18} />
-              <span className="hidden sm:inline">Filters</span>
-              {hasActiveFilters && (
-                <span className="flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-brand-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-600"></span>
-                </span>
-              )}
-            </button>
+            {/* Filter Button — modal on Browse (vs sidebar on Home) keeps the grid fullscreen */}
+            <WithTooltip label={hasActiveFilters ? "Edit active filters" : "Open filters"}>
+              <button
+                onClick={() => setShowFilterModal(true)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-sm font-medium whitespace-nowrap transition-all border ${
+                  hasActiveFilters
+                    ? 'bg-brand-50 text-brand-700 border-brand-300 shadow-soft-sm'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+                aria-label="Open filters"
+              >
+                <SlidersHorizontal size={18} />
+                <span className="hidden sm:inline">Filters</span>
+                {hasActiveFilters ? (
+                  <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white">
+                    {activeFilterChips.length}
+                  </span>
+                ) : null}
+              </button>
+            </WithTooltip>
           </div>
 
-          {/* Sort Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-            <span className="text-sm text-gray-600 font-medium whitespace-nowrap mr-1">Sort by:</span>
+          {activeFilterChips.length > 0 ? (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-gray-500">Active:</span>
+              {activeFilterChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => removeFilter(chip.key)}
+                  className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800 hover:bg-brand-100"
+                >
+                  {chip.label}
+                  <X size={12} className="opacity-70" />
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-xs font-medium text-gray-500 hover:text-brand-700 hover:underline"
+              >
+                Clear all
+              </button>
+            </div>
+          ) : null}
 
-            <button
-              onClick={() => setSortBy('recent')}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                sortBy === 'recent'
-                  ? 'bg-brand-500 text-white shadow-soft-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Recent
-            </button>
-            <button
-              onClick={() => setSortBy('price_low')}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                sortBy === 'price_low'
-                  ? 'bg-brand-500 text-white shadow-soft-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Price: Low to High
-            </button>
-            <button
-              onClick={() => setSortBy('price_high')}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                sortBy === 'price_high'
-                  ? 'bg-brand-500 text-white shadow-soft-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Price: High to Low
-            </button>
+          {/* Sort + view toggle */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <Dropdown
+                value={sortBy}
+                onChange={setSortBy}
+                options={SORT_OPTIONS}
+                aria-label="Sort listings"
+                size="sm"
+                className="w-full max-w-[16rem] sm:w-auto"
+                triggerClassName="bg-white"
+              />
+            </div>
+
+            {!isMobile ? (
+              <div className="hidden sm:inline-flex shrink-0 rounded-control border border-gray-200 bg-gray-50 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  className={`inline-flex items-center gap-1.5 rounded-[0.5rem] px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    viewMode === 'list' ? 'bg-white text-brand-800 shadow-soft-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  aria-pressed={viewMode === 'list'}
+                >
+                  <LayoutGrid className="size-3.5" />
+                  List
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('map')}
+                  className={`inline-flex items-center gap-1.5 rounded-[0.5rem] px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    viewMode === 'map' ? 'bg-white text-brand-800 shadow-soft-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  aria-pressed={viewMode === 'map'}
+                >
+                  <Map className="size-3.5" />
+                  Map
+                </button>
+              </div>
+            ) : null}
           </div>
+
+          {!loading && !error && properties.length > 0 ? (
+            <p className="mt-2 text-xs text-gray-500">
+              {properties.length} result{properties.length === 1 ? '' : 's'}
+              {viewMode === 'map' && !isMobile ? ' · click a pin to highlight' : ''}
+            </p>
+          ) : null}
         </div>
       </div>
 
       {/* Properties Content */}
-      <div className="max-w-7xl mx-auto px-4 py-6 pb-24">
+      <div className="max-w-[90rem] mx-auto px-4 py-6 pb-24">
         {loading ? (
           isMobile ? (
             <div className="flex justify-center py-6">
@@ -545,16 +773,52 @@ export default function PropertyFeed() {
             onRetry={fetchProperties}
           />
         ) : properties.length === 0 ? (
-          <ContextualEmptyState
-            title={`No properties in ${locationLabel} yet`}
-            description="Try widening your search, clearing filters, or picking a nearby district."
-            actionLabel="Clear filters & search"
-            onAction={() => {
-              setSearchQuery('');
-              clearFilters();
-              fetchProperties();
-            }}
-          />
+          (() => {
+            const hasSearch = Boolean(searchQuery.trim());
+            const hasFilters = Boolean(hasActiveFilters);
+            const hasLocation = Boolean(selectedLocation);
+            let title = "No properties found";
+            let description = "Try a different location or adjust your filters.";
+            let actionLabel = "Try again";
+            if (hasSearch && hasFilters) {
+              title = `No matches for “${searchQuery.trim()}”`;
+              description =
+                "Nothing matched both your search and filters. Clear one or both to see more listings.";
+              actionLabel = "Clear search & filters";
+            } else if (hasSearch) {
+              title = `No matches for “${searchQuery.trim()}”`;
+              description = "Try a shorter keyword, another spelling, or clear the search.";
+              actionLabel = "Clear search";
+            } else if (hasFilters) {
+              title = "No properties match these filters";
+              description =
+                "Widen price, BHK, or other filters — or clear them to see everything in this area.";
+              actionLabel = "Clear filters";
+            } else if (hasLocation) {
+              title = `No properties in ${locationLabel} yet`;
+              description =
+                "Try a nearby taluk or zone, or clear location to browse all listings.";
+              actionLabel = "Clear location";
+            }
+            return (
+              <ContextualEmptyState
+                title={title}
+                description={description}
+                actionLabel={actionLabel}
+                onAction={() => {
+                  if (hasSearch) setSearchQuery("");
+                  if (hasFilters) clearFilters();
+                  if (!hasSearch && !hasFilters && hasLocation) {
+                    setSelectedLocation(null);
+                  }
+                  // After search/filter clear, refetch; location change also triggers via effect
+                  if (hasSearch || hasFilters || !hasLocation) {
+                    setTimeout(() => fetchProperties(), 0);
+                  }
+                }}
+              />
+            );
+          })()
         ) : isMobile ? (
           <div className="relative">
             {currentIndex < 0 ? (
@@ -613,76 +877,152 @@ export default function PropertyFeed() {
                 </div>
 
                 <div className="flex justify-center items-center gap-4 mt-6">
-                  <motion.button
-                    whileTap={reduceMotion ? undefined : { scale: 0.92 }}
-                    onClick={goBack}
-                    disabled={swipedCards.length === 0}
-                    className={`w-12 h-12 rounded-full bg-white border border-gray-300 shadow-soft-md flex items-center justify-center transition-all ${
-                      swipedCards.length === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-50 hover:shadow-soft-lg'
-                    }`}
-                    aria-label="Undo last swipe"
-                  >
-                    <RotateCcw size={20} className="text-gray-600" />
-                  </motion.button>
+                  <WithTooltip label="Undo last swipe">
+                    <motion.button
+                      whileTap={reduceMotion ? undefined : { scale: 0.92 }}
+                      onClick={goBack}
+                      disabled={swipedCards.length === 0}
+                      className={`w-12 h-12 rounded-full bg-white border border-gray-300 shadow-soft-md flex items-center justify-center transition-all ${
+                        swipedCards.length === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-50 hover:shadow-soft-lg'
+                      }`}
+                      aria-label="Undo last swipe"
+                    >
+                      <RotateCcw size={20} className="text-gray-600" />
+                    </motion.button>
+                  </WithTooltip>
 
-                  <motion.button
-                    whileTap={reduceMotion ? undefined : { scale: 0.9 }}
-                    onClick={() => swipeDeckRef.current?.swipe('left')}
-                    disabled={currentIndex < 0}
-                    className="w-14 h-14 rounded-full bg-white border-2 border-rose-200 shadow-soft-md flex items-center justify-center hover:bg-rose-50 transition-all"
-                    aria-label="Skip property"
-                  >
-                    <X size={24} className="text-rose-500" />
-                  </motion.button>
+                  <WithTooltip label="Skip this property">
+                    <motion.button
+                      whileTap={reduceMotion ? undefined : { scale: 0.9 }}
+                      onClick={() => swipeDeckRef.current?.swipe('left')}
+                      disabled={currentIndex < 0}
+                      className="w-14 h-14 rounded-full bg-white border-2 border-rose-200 shadow-soft-md flex items-center justify-center hover:bg-rose-50 transition-all"
+                      aria-label="Skip property"
+                    >
+                      <X size={24} className="text-rose-500" />
+                    </motion.button>
+                  </WithTooltip>
 
-                  <motion.button
-                    whileTap={reduceMotion ? undefined : { scale: 0.9 }}
-                    onClick={() => {
-                      if (currentIndex >= 0) handleSaveProperty(properties[currentIndex].id);
-                    }}
-                    disabled={currentIndex < 0}
-                    className="w-12 h-12 rounded-full bg-white border border-gray-300 shadow-soft-md flex items-center justify-center hover:bg-gray-50 hover:shadow-soft-lg transition-all"
-                    aria-label="Toggle favourite"
-                  >
-                    <Heart
-                      size={22}
-                      className={
-                        currentIndex >= 0 && properties[currentIndex]?.is_favourite
-                          ? 'fill-red-500 text-red-500'
-                          : 'text-red-500'
-                      }
-                    />
-                  </motion.button>
+                  <WithTooltip label="Toggle favourite">
+                    <motion.button
+                      whileTap={reduceMotion ? undefined : { scale: 0.9 }}
+                      onClick={() => {
+                        if (currentIndex >= 0) handleSaveProperty(properties[currentIndex].id);
+                      }}
+                      disabled={currentIndex < 0}
+                      className="w-12 h-12 rounded-full bg-white border border-gray-300 shadow-soft-md flex items-center justify-center hover:bg-gray-50 hover:shadow-soft-lg transition-all"
+                      aria-label="Toggle favourite"
+                    >
+                      <Heart
+                        size={22}
+                        className={
+                          currentIndex >= 0 && properties[currentIndex]?.is_favourite
+                            ? 'fill-red-500 text-red-500'
+                            : 'text-red-500'
+                        }
+                      />
+                    </motion.button>
+                  </WithTooltip>
 
-                  <motion.button
-                    whileTap={reduceMotion ? undefined : { scale: 0.9 }}
-                    onClick={() => swipeDeckRef.current?.swipe('right')}
-                    disabled={currentIndex < 0}
-                    className="w-14 h-14 rounded-full bg-white border-2 border-emerald-200 shadow-soft-md flex items-center justify-center hover:bg-emerald-50 transition-all"
-                    aria-label="Save and next"
-                  >
-                    <Heart size={24} className="text-emerald-500 fill-emerald-500" />
-                  </motion.button>
+                  <WithTooltip label="Save and go next">
+                    <motion.button
+                      whileTap={reduceMotion ? undefined : { scale: 0.9 }}
+                      onClick={() => swipeDeckRef.current?.swipe('right')}
+                      disabled={currentIndex < 0}
+                      className="w-14 h-14 rounded-full bg-white border-2 border-emerald-200 shadow-soft-md flex items-center justify-center hover:bg-emerald-50 transition-all"
+                      aria-label="Save and next"
+                    >
+                      <Heart size={24} className="text-emerald-500 fill-emerald-500" />
+                    </motion.button>
+                  </WithTooltip>
                 </div>
               </>
             )}
           </div>
+        ) : viewMode === 'map' ? (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.85fr)] lg:gap-5">
+            <PropertyMapView
+              properties={properties}
+              selectedId={mapSelectedId}
+              onSelect={setMapSelectedId}
+              onOpenDetails={(id) => navigate(`/property/${id}`, { state: { from: '/property-feed' } })}
+              className="min-h-[min(55vh,520px)] h-[min(70vh,640px)] w-full"
+            />
+            <div className="flex max-h-[min(70vh,640px)] flex-col gap-3">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                {pagedProperties.map((property) => (
+                  <button
+                    key={property.id}
+                    type="button"
+                    onClick={() => setMapSelectedId(property.id)}
+                    onDoubleClick={() =>
+                      navigate(`/property/${property.id}`, { state: { from: '/property-feed' } })
+                    }
+                    className={`w-full rounded-card border p-3 text-left transition-colors ${
+                      mapSelectedId === property.id
+                        ? 'border-brand-500 bg-brand-50/70 shadow-soft-sm'
+                        : 'border-border bg-card hover:border-brand-200'
+                    }`}
+                  >
+                    <p className="line-clamp-1 text-sm font-semibold text-gray-900">
+                      {property.bhk_type} {property.apartment_type}
+                    </p>
+                    <p className="mt-0.5 line-clamp-1 text-xs text-gray-500">
+                      {property.locality}, {property.city}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-brand-700">
+                      {property.expected_price
+                        ? new Intl.NumberFormat('en-IN', {
+                            style: 'currency',
+                            currency: 'INR',
+                            notation: 'compact',
+                            maximumFractionDigits: 1,
+                          }).format(property.expected_price)
+                        : '—'}
+                    </p>
+                  </button>
+                ))}
+              </div>
+              <Pagination
+                page={feedPage}
+                pageCount={feedPageCount}
+                onPageChange={setFeedPage}
+                totalItems={feedTotal}
+                pageSize={feedPageSize}
+                compact
+              />
+            </div>
+          </div>
         ) : (
           /* Desktop: Grid View */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
-            {properties.map((property) => (
-              <PropertyCard
-                key={property.id}
-                property={property}
-                onOpenDetails={(id) => navigate(`/property/${id}`, { state: { from: '/property-feed' } })}
-                onFavouriteChange={(id, isFav) =>
-                  setProperties((prev) =>
-                    prev.map((p) => (p.id === id ? { ...p, is_favourite: isFav } : p))
-                  )
-                }
-                onCall={handleCallClick}
-              />
-            ))}
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 md:gap-5">
+              {pagedProperties.map((property) => (
+                <PropertyCard
+                  key={property.id}
+                  property={property}
+                  onOpenDetails={(id) => navigate(`/property/${id}`, { state: { from: '/property-feed' } })}
+                  onFavouriteChange={(id, isFav) =>
+                    setProperties((prev) =>
+                      prev.map((p) => (p.id === id ? { ...p, is_favourite: isFav } : p))
+                    )
+                  }
+                  onCompareToggle={toggleCompare}
+                  isComparing={isComparing(property.id)}
+                  onCall={handleCallClick}
+                />
+              ))}
+            </div>
+            <Pagination
+              page={feedPage}
+              pageCount={feedPageCount}
+              onPageChange={(p) => {
+                setFeedPage(p);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              totalItems={feedTotal}
+              pageSize={feedPageSize}
+            />
           </div>
         )}
       </div>
@@ -700,17 +1040,28 @@ export default function PropertyFeed() {
       {showFilterModal && (
         <div className="fixed inset-0 bg-black/40 z-[9999] flex items-end md:items-center justify-center backdrop-blur-sm px-2 safe-bottom">
           <div className="bg-white w-full md:w-[520px] md:rounded-card rounded-t-card max-h-[92dvh] overflow-y-auto shadow-soft-lg">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Filter Properties</h2>
-              <button
-                onClick={() => setShowFilterModal(false)}
-                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X size={20} className="text-gray-600" />
-              </button>
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Narrow this browse view — same criteria as Home, in a focused panel.
+                </p>
+              </div>
+              <WithTooltip label="Close filters">
+                <button
+                  type="button"
+                  onClick={() => setShowFilterModal(false)}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+                  aria-label="Close filters"
+                >
+                  <X size={20} className="text-gray-600" />
+                </button>
+              </WithTooltip>
             </div>
 
             <div className="p-5 space-y-5">
+              <LocationCascadeFilter />
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">BHK Type</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
