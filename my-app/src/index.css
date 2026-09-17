@@ -227,16 +227,21 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+html {
+  overflow-x: clip;
+  overflow-y: auto;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--background);
   color: var(--foreground);
-  overflow-x: hidden;
+  overflow-x: clip;
   min-height: 100dvh;
 }
 
 #root {
-  overflow-x: hidden;
+  overflow-x: clip;
   min-height: 100dvh;
 }
 

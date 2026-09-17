@@ -7,6 +7,7 @@ import {
   MapPin,
   Bed,
   Bath,
+  Heart,
   Maximize,
   ShieldCheck,
   Sparkles,
@@ -33,6 +34,8 @@ export interface PropertyCardProps {
   onFavouriteChange?: (id: number, isFavourite: boolean) => void;
   onCompareToggle?: (id: number) => void;
   isComparing?: boolean;
+  /** `list` = compact horizontal row for mobile browse; `card` = marketplace gallery tile. */
+  variant?: "card" | "list";
   className?: string;
 }
 
@@ -91,6 +94,7 @@ export function PropertyCard({
   onFavouriteChange,
   onCompareToggle,
   isComparing = false,
+  variant = "card",
   className,
 }: PropertyCardProps) {
   const [isFavourite, setIsFavourite] = useState(property.is_favourite);
@@ -159,6 +163,108 @@ export function PropertyCard({
       // user cancelled the native share sheet — not an error
     }
   };
+
+  const thumbUrl = property.images?.[0]?.url;
+  const listingTone =
+    property.property_for === "Rent/Lease"
+      ? { label: "RENT", className: "bg-trust-600" }
+      : property.property_for === "Sell"
+        ? { label: "SALE", className: "bg-emerald-500" }
+        : null;
+  const specBits = isCommercial
+    ? [
+        areaSqft > 0 ? `${areaSqft} ft²` : null,
+        property.frontage_ft ? `${property.frontage_ft} ft frontage` : null,
+      ].filter(Boolean)
+    : [
+        property.bhk_type && property.bhk_type.split(" ")[0] !== "Studio"
+          ? property.bhk_type.split(" ")[0]
+          : property.bhk_type?.includes("Studio")
+            ? "Studio"
+            : null,
+        property.bathrooms > 0 ? `${property.bathrooms} bath` : null,
+        areaSqft > 0 ? `${areaSqft} ft²` : null,
+      ].filter(Boolean);
+
+  if (variant === "list") {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={openDetails}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openDetails();
+          }
+        }}
+        className={cn(
+          "flex cursor-pointer gap-3 rounded-card border border-border bg-card p-2.5 shadow-soft-sm transition-colors hover:border-brand-200",
+          className
+        )}
+      >
+        <div className="relative h-[5.5rem] w-[6.75rem] shrink-0 overflow-hidden rounded-md bg-muted">
+          {thumbUrl ? (
+            <img src={thumbUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+              No photo
+            </div>
+          )}
+          {listingTone ? (
+            <span
+              className={cn(
+                "absolute left-1 top-1 rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white",
+                listingTone.className
+              )}
+            >
+              {listingTone.label}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            aria-label={isFavourite ? "Remove from favourites" : "Save to favourites"}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              favouriteMutation.mutate();
+            }}
+            className="absolute right-1 top-1 flex size-7 items-center justify-center rounded-full bg-white/95 text-gray-600 shadow-sm"
+          >
+            <Heart className={cn("size-3.5", isFavourite && "fill-rose-500 text-rose-500")} />
+          </button>
+        </div>
+
+        <div className="min-w-0 flex-1 py-0.5">
+          <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug text-foreground">
+            {title}
+          </h3>
+          <p className="mt-0.5 font-display text-base font-semibold text-brand-700">
+            {formatInr(property.expected_price, { compact: true })}
+            {property.property_for === "Rent/Lease" ? (
+              <span className="ml-0.5 text-[11px] font-medium text-muted-foreground">/mo</span>
+            ) : null}
+          </p>
+          <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+            <MapPin className="size-3 shrink-0" />
+            <span className="line-clamp-1">
+              {property.locality}, {property.city}
+            </span>
+          </p>
+          {specBits.length > 0 ? (
+            <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+              {specBits.join(" · ")}
+            </p>
+          ) : null}
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {postedBy === "Owner" ? "Owner Listed" : postedBy || null}
+            {postedBy && property.created_at ? " · " : null}
+            {property.created_at ? formatRelativeTime(property.created_at) : null}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

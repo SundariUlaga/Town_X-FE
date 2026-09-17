@@ -63,7 +63,8 @@ export default function PropertyFeed() {
     apartmentType: '',
   });
 
-  const feedPagination = useClientPagination(properties, FEED_PAGE_SIZE);
+  const feedPageSizeLimit = isMobile ? Math.max(properties.length, 1) : FEED_PAGE_SIZE;
+  const feedPagination = useClientPagination(properties, feedPageSizeLimit);
   const {
     page: feedPage,
     setPage: setFeedPage,
@@ -317,7 +318,7 @@ export default function PropertyFeed() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="min-h-screen bg-gray-50">
       <AppNavbar
         variant="inner"
         backTo={homeRoute}
@@ -459,7 +460,10 @@ export default function PropertyFeed() {
       {/* Properties Content */}
       <div className="max-w-[90rem] mx-auto px-4 py-6 pb-24">
         {loading ? (
-          <PropertyCardSkeletonGrid count={isMobile ? 4 : 8} />
+          <PropertyCardSkeletonGrid
+            count={isMobile ? 6 : 8}
+            variant={isMobile ? "list" : "card"}
+          />
         ) : error ? (
           <LoadErrorState
             title="Couldn't load properties"
@@ -569,9 +573,24 @@ export default function PropertyFeed() {
             </div>
           </div>
         ) : (
-          /* Vertical list on mobile, multi-column grid on larger screens */
+          /* Compact vertical list on mobile; multi-column cards from md up */
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 md:gap-5">
+            <div className="flex flex-col gap-2.5 md:hidden">
+              {pagedProperties.map((property) => (
+                <PropertyCard
+                  key={property.id}
+                  variant="list"
+                  property={property}
+                  onOpenDetails={(id) => navigate(`/property/${id}`, { state: { from: '/property-feed' } })}
+                  onFavouriteChange={(id, isFav) =>
+                    setProperties((prev) =>
+                      prev.map((p) => (p.id === id ? { ...p, is_favourite: isFav } : p))
+                    )
+                  }
+                />
+              ))}
+            </div>
+            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 md:gap-5">
               {pagedProperties.map((property) => (
                 <PropertyCard
                   key={property.id}
@@ -587,16 +606,18 @@ export default function PropertyFeed() {
                 />
               ))}
             </div>
-            <Pagination
-              page={feedPage}
-              pageCount={feedPageCount}
-              onPageChange={(p) => {
-                setFeedPage(p);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              totalItems={feedTotal}
-              pageSize={feedPageSize}
-            />
+            {!isMobile && feedPageCount > 1 ? (
+              <Pagination
+                page={feedPage}
+                pageCount={feedPageCount}
+                onPageChange={(p) => {
+                  setFeedPage(p);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                totalItems={feedTotal}
+                pageSize={feedPageSize}
+              />
+            ) : null}
           </div>
         )}
       </div>

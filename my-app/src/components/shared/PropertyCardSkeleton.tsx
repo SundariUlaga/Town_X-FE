@@ -44,7 +44,30 @@ export function PropertyCardSkeletonGrid({
   count = 6,
   compact = false,
   className,
-}: PropertyCardSkeletonGridProps) {
+  variant = "card",
+}: PropertyCardSkeletonGridProps & { variant?: "card" | "list" }) {
+  if (variant === "list") {
+    return (
+      <div className={cn("flex flex-col gap-2.5", className)} role="status" aria-label="Loading properties">
+        {Array.from({ length: count }).map((_, index) => (
+          <div
+            key={index}
+            className="flex gap-3 rounded-card border border-border bg-card p-2.5"
+            aria-hidden
+          >
+            <Bone className="h-[5.5rem] w-[6.75rem] shrink-0 rounded-md" />
+            <div className="flex min-w-0 flex-1 flex-col gap-2 py-0.5">
+              <Bone className="h-4 w-4/5" />
+              <Bone className="h-5 w-1/3" />
+              <Bone className="h-3 w-2/3" />
+              <Bone className="h-3 w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
