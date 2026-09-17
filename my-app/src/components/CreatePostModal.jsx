@@ -24,6 +24,17 @@ const modalVariants = {
   exit: { opacity: 0, scale: 0.96, y: 12, transition: { duration: 0.15, ease: "easeIn" } },
 };
 
+const PROPERTY_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".heic"];
+const PROPERTY_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/heic,.jpg,.jpeg,.png,.webp,.heic";
+const PROPERTY_IMAGE_FORMATS_LABEL = "JPG, JPEG, PNG, WebP, or HEIC";
+
+function isAllowedPropertyImage(file) {
+  const name = (file?.name || "").toLowerCase();
+  if (PROPERTY_IMAGE_EXTENSIONS.some((ext) => name.endsWith(ext))) return true;
+  const type = (file?.type || "").toLowerCase();
+  return ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"].includes(type);
+}
+
 function OptionButton({ selected, onClick, small = false, children }) {
   return (
     <motion.button
@@ -315,11 +326,17 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || []);
-    if (files.length + uploadedFiles.length > 20) {
+    e.target.value = "";
+    const allowed = files.filter(isAllowedPropertyImage);
+    if (allowed.length !== files.length) {
+      toast(`Use ${PROPERTY_IMAGE_FORMATS_LABEL}`, "error");
+    }
+    if (!allowed.length) return;
+    if (allowed.length + uploadedFiles.length > 20) {
       toast("Maximum 20 images allowed", "error");
       return;
     }
-    setUploadedFiles([...uploadedFiles, ...files]);
+    setUploadedFiles([...uploadedFiles, ...allowed]);
   };
 
   const removeFile = (index) => {
@@ -1092,8 +1109,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Expected Price (₹)
-                          text-red-500
+                          Expected Price (₹)<span className={requiredMark}>*</span>
                         </label>
                         <div className="relative">
                           <IndianRupee
@@ -1109,6 +1125,9 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
                             className="w-full pl-8 pr-2.5 py-2 text-xs border-2 border-gray-200 rounded-control focus:outline-none focus:border-brand-500 transition-colors"
                           />
                         </div>
+                        {fieldErrors.expectedPrice ? (
+                          <p className="mt-1 text-xs text-status-error">{fieldErrors.expectedPrice}</p>
+                        ) : null}
                       </div>
 
                       {formData.propertyFor === "Rent/Lease" && (
@@ -1216,13 +1235,16 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, editProper
                         <p className="text-xs text-gray-600 mb-1">
                           Click to upload or drag and drop
                         </p>
+                        <p className="text-[10px] text-gray-500 mb-0.5">
+                          Supported formats: {PROPERTY_IMAGE_FORMATS_LABEL}
+                        </p>
                         <p className="text-[10px] text-gray-500 mb-2">
-                          Upload at least 1 photo (Max 20)
+                          Upload at least 1 photo (max 20)
                         </p>
                         <input
                           type="file"
                           multiple
-                          accept="image/*"
+                          accept={PROPERTY_IMAGE_ACCEPT}
                           onChange={handleFileChange}
                           className="hidden"
                           id="file-upload"

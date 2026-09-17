@@ -77,7 +77,7 @@ export default function NavbarLocationPicker() {
     : filteredDistricts.length === 0;
 
   return (
-    <div ref={rootRef} className="relative hidden xs:block shrink-0">
+    <div ref={rootRef} className="relative hidden sm:block shrink-0">
       <WithTooltip
         label={
           selectedLocation?.label

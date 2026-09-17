@@ -97,7 +97,12 @@ export default function EditAdvertisementPage() {
           ))}
           <div className="space-y-1.5">
             <Label>Replace banner (optional)</Label>
-            <Input type="file" accept="image/*" onChange={(e) => setBanner(e.target.files?.[0] ?? null)} />
+            <Input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic,.jpg,.jpeg,.png,.webp,.heic"
+              onChange={(e) => setBanner(e.target.files?.[0] ?? null)}
+            />
+            <p className="text-xs text-gray-500">Supported formats: JPG, JPEG, PNG, WebP, or HEIC</p>
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <Button type="submit" disabled={submitting}>Resubmit for review</Button>

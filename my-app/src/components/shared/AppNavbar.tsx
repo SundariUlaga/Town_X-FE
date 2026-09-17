@@ -50,10 +50,10 @@ function NavDivider() {
 }
 
 const postButtonClass =
-  "inline-flex items-center gap-1.5 rounded-control bg-secondary-500 px-3 py-2 text-xs font-semibold text-white shadow-soft-sm hover:bg-secondary-600 hover:shadow-secondary-glow transition-colors";
+  "items-center gap-1.5 rounded-control bg-secondary-500 px-3 py-2 text-xs font-semibold text-white shadow-soft-sm hover:bg-secondary-600 hover:shadow-secondary-glow transition-colors";
 
 const postButtonCompactClass =
-  "inline-flex items-center gap-1 rounded-control bg-secondary-500 px-2.5 py-1.5 text-xs font-semibold text-white shadow-soft-sm hover:bg-secondary-600 transition-colors";
+  "items-center gap-1 rounded-control bg-secondary-500 px-2.5 py-1.5 text-xs font-semibold text-white shadow-soft-sm hover:bg-secondary-600 transition-colors";
 
 function ProfileDropdown() {
   const { user } = useAuth();
@@ -546,7 +546,7 @@ export function AppNavbar({
               {/* Desktop / tablet nav — hidden on mobile (lives in drawer) */}
               <DesktopNavLinks onPostProperty={openPostFlow} />
 
-              {/* Compact Post: tablet only (desktop has full label; mobile has drawer CTA) */}
+              {/* Compact Post: tablet only (desktop has full label; mobile uses drawer CTA) */}
               <WithTooltip label="Post free property">
                 <button
                   type="button"
@@ -564,7 +564,7 @@ export function AppNavbar({
                 <ProfileDropdown />
               </div>
 
-              {extraActions}
+              {extraActions ? <div className="shrink-0">{extraActions}</div> : null}
 
               <NavDivider />
 

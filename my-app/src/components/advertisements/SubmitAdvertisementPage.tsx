@@ -178,9 +178,10 @@ export default function SubmitAdvertisementPage() {
               <span className="text-sm font-medium text-gray-700">
                 {banner ? banner.name : "Upload banner image"}
               </span>
+              <span className="text-xs text-gray-500">JPG, JPEG, PNG, WebP, or HEIC</span>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/heic,.jpg,.jpeg,.png,.webp,.heic"
                 className="hidden"
                 onChange={(e) => setBanner(e.target.files?.[0] ?? null)}
               />
