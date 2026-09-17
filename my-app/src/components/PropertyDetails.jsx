@@ -7,7 +7,7 @@ import {
   Share2, BadgeCheck, Maximize2
 } from 'lucide-react';
 import { propertyAPI, enquiryAPI, reportAPI } from '../services/api';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, ROLE_HOME_ROUTE } from '@/context/AuthContext';
 import PropertyDetailsSkeleton from "@/components/shared/PropertyDetailsSkeleton";
 import { recordRecentlyViewed } from "@/lib/recentlyViewed";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
@@ -40,7 +40,7 @@ export default function PropertyDetails() {
   const backTo = location.state?.from || '/home';
   const { user } = useAuth();
   const { toast } = useToast();
-  const homeRoute = user ? (user.role === 'owner' ? '/owner/dashboard' : user.role === 'admin' ? '/admin/dashboard' : '/home') : '/home';
+  const homeRoute = user ? ROLE_HOME_ROUTE[user.role] : '/home';
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
   const [property, setProperty] = useState(null);

@@ -19,7 +19,7 @@ import {
 /** Where each role lands right after login/signup (KYC must be verified first). */
 export const ROLE_HOME_ROUTE: Record<UserRole, string> = {
   buyer: "/home",
-  owner: "/owner/dashboard",
+  owner: "/home",
   /** Marker only — admin is hard-redirected to the external console. */
   admin: "/admin/dashboard",
 };
@@ -46,10 +46,6 @@ export function getPostAuthRoute(user: User, from?: string): string {
   const trimmed = from?.trim();
   const base = pathOnly(trimmed);
   if (trimmed && base && !NON_APP_RETURN_PATHS.has(base)) {
-    // Landing / generic "buyer home" must not override owner destinations.
-    if (base === ROLE_HOME_ROUTE.buyer && user.role !== "buyer") {
-      return ROLE_HOME_ROUTE[user.role];
-    }
     return trimmed;
   }
   return ROLE_HOME_ROUTE[user.role];

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Building2,
@@ -288,8 +289,8 @@ function AppMenuDrawer({ open, onClose, onPostProperty }: AppMenuDrawerProps) {
           {user?.role === "owner" && (
             <button
               type="button"
-              className={linkClass(ROLE_HOME_ROUTE[user.role as UserRole])}
-              onClick={() => go(ROLE_HOME_ROUTE[user.role as UserRole])}
+              className={linkClass("/owner/dashboard")}
+              onClick={() => go("/owner/dashboard")}
             >
               <Building2 className="size-4" />
               Dashboard
@@ -424,8 +425,8 @@ function DesktopNavLinks() {
       {user?.role === "owner" && (
         <button
           type="button"
-          className={linkClass(ROLE_HOME_ROUTE[user.role as UserRole])}
-          onClick={() => navigate(ROLE_HOME_ROUTE[user.role as UserRole])}
+          className={linkClass("/owner/dashboard")}
+          onClick={() => navigate("/owner/dashboard")}
         >
           Dashboard
         </button>
@@ -471,6 +472,7 @@ export function AppNavbar({
   const { user, isAuthenticated } = useAuth();
   const { openAuthDrawer } = useAuthDrawer();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const goBack = useSmartBack(backTo);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPostModal, setShowPostModal] = useState(false);
@@ -483,7 +485,7 @@ export function AppNavbar({
     if (!isAuthenticated) {
       openAuthDrawer("signup", {
         defaultRole: "owner",
-        from: "/owner/dashboard",
+        from: "/home",
       });
       return;
     }
@@ -583,9 +585,7 @@ export function AppNavbar({
         onClose={() => setShowPostModal(false)}
         onSuccess={() => {
           setShowPostModal(false);
-          if (user?.role === "owner") {
-            navigate("/owner/dashboard");
-          }
+          queryClient.invalidateQueries({ queryKey: ["my-properties"] });
         }}
       />
     </>

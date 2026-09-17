@@ -18,9 +18,8 @@ export function DashboardShell({
 }) {
   const { user } = useAuth();
   const homeRoute = user ? ROLE_HOME_ROUTE[user.role] : "/home";
-  // Owner dashboard is the role home — back should go to browse, not loop.
-  const backTo = user?.role === "owner" ? "/property-feed" : homeRoute;
-  const backLabel = user?.role === "owner" ? "Browse listings" : "Back to app";
+  const backTo = homeRoute;
+  const backLabel = "Back to home";
 
   return (
     <div className="min-h-screen bg-background">

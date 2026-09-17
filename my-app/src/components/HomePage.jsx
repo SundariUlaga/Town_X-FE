@@ -5,10 +5,10 @@ import React, {
   useCallback,
 } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   X,
-  Plus,
   Home,
   AlertCircle,
   Building2,
@@ -40,6 +40,7 @@ import { HomeInsightsRail } from "@/components/home/HomeInsightsRail";
 import { StoriesRail } from "@/components/home/StoriesRail";
 import { SponsoredCarousel } from "@/components/home/SponsoredCarousel";
 import { HomeTestimonials } from "@/components/home/HomeTestimonials";
+import { YourListingsSection } from "@/components/home/YourListingsSection";
 import { advertisementAPI } from "@/services/advertisementAPI";
 import { useCompare } from "@/context/CompareContext";
 
@@ -110,6 +111,7 @@ const useDebounce = (value, delay) => {
 export default function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const { toggle: toggleCompare, isComparing } = useCompare();
   const { selectedLocation, locationLabel } = useLocationContext();
@@ -351,19 +353,10 @@ export default function HomePage() {
     }
   }, [location.pathname, location.state, navigate, user?.role]);
 
-  const handleCreatePostSuccess = useCallback(
-    (propertyId) => {
-      setShowCreatePostModal(false);
-      if (user?.role === "owner") {
-        navigate("/owner/dashboard", { replace: true });
-        return;
-      }
-      if (propertyId) {
-        navigate(`/property/${propertyId}`, { state: { from: "/home" } });
-      }
-    },
-    [navigate, user?.role]
-  );
+  const handleCreatePostSuccess = useCallback(() => {
+    setShowCreatePostModal(false);
+    queryClient.invalidateQueries({ queryKey: ["my-properties"] });
+  }, [queryClient]);
 
   const handleCategoryClick = useCallback(
     (category) => {
@@ -783,21 +776,7 @@ export default function HomePage() {
             </details>
 
             {user?.role === "owner" ? (
-              <button
-                type="button"
-                onClick={handleCreatePost}
-                className="flex w-full items-center gap-3 border border-secondary-200 bg-secondary-50 px-4 py-3.5 text-left transition-colors hover:bg-secondary-100/70"
-              >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary-500 text-white">
-                  <Plus className="size-5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-gray-900">Post free property</span>
-                  <span className="mt-0.5 block text-xs text-secondary-800">
-                    List a home for sale or rent — buyers will find you here.
-                  </span>
-                </span>
-              </button>
+              <YourListingsSection onPostProperty={handleCreatePost} />
             ) : user?.role === "buyer" ? (
               <button
                 type="button"

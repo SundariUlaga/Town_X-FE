@@ -719,7 +719,7 @@ export default function DynamicLandingPage() {
                   whileTap={reduceMotion ? undefined : { scale: 0.98 }}
                   onClick={() =>
                     navigate(
-                      user?.role === "owner" ? "/owner/dashboard" : "/home",
+                      "/home",
                       user?.role === "owner" ? { state: { openPost: true } } : undefined
                     )
                   }
