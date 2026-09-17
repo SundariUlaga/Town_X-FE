@@ -9,6 +9,7 @@ import { LocationCascadeFilter } from '@/components/shared/LocationCascadeFilter
 import { criteriaFromFeedSearch, syncSearchAlert } from '@/lib/searchAlerts';
 import { useAuth, ROLE_HOME_ROUTE } from '@/context/AuthContext';
 import { PropertyCard } from './PropertyCard';
+import { PropertyCardGallery } from '@/components/property/PropertyCardGallery';
 import { getApiErrorMessage } from '@/lib/apiErrors';
 import LoadErrorState from "@/components/shared/LoadErrorState";
 import ContextualEmptyState from "@/components/shared/ContextualEmptyState";
@@ -430,53 +431,15 @@ export default function PropertyFeed() {
       }`}
       onClick={!isSwipeable ? (e) => handlePropertyClick(property.id, e) : undefined}
     >
-      <div
-        className={`relative overflow-hidden bg-gray-100 ${
-          isSwipeable ? 'h-2/5' : 'h-36 sm:h-40 md:h-44'
-        }`}
-      >
-        <div
-          className="w-full h-full cursor-pointer overflow-hidden"
-          onClick={(e) => handleImageClick(property.id, e)}
-          onTouchEnd={(e) => {
-            e.stopPropagation();
-          }}
-        >
-          <img
-            src={property.images && property.images.length > 0 && property.images[0].url
-              ? property.images[0].url
-              : 'https://via.placeholder.com/400x300?text=No+Image'}
-            alt={property.apartment_name || 'Property'}
-            className="h-full w-full max-w-full object-cover pointer-events-none"
-            onError={(e) => {
-              e.target.src = 'https://via.placeholder.com/400x300?text=Image+Not+Found';
-            }}
-          />
-        </div>
-        <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
-        {property.property_for && (
-          <div className="absolute top-2 left-2 bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded font-medium shadow-soft-sm pointer-events-none">
-            For {property.property_for}
-          </div>
-        )}
-        <WithTooltip
-          label={property.is_favourite ? "Remove from favourites" : "Save to favourites"}
-        >
-          <button
-            onClick={(e) => handleSaveProperty(property.id, e)}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              handleSaveProperty(property.id, e);
-            }}
-            className="absolute top-2 right-2 bg-white p-1.5 rounded-full hover:bg-gray-50 transition-colors shadow-soft-sm z-10"
-            aria-label={property.is_favourite ? "Remove from favourites" : "Save to favourites"}
-          >
-            <Heart
-              size={16}
-              className={property.is_favourite ? 'fill-red-500 text-red-500' : 'text-gray-600'}
-            />
-          </button>
-        </WithTooltip>
+      <div className={isSwipeable ? "relative h-2/5 shrink-0 overflow-hidden" : undefined}>
+        <PropertyCardGallery
+          images={property.images}
+          alt={property.apartment_name || 'Property'}
+          propertyFor={property.property_for}
+          isFavourite={Boolean(property.is_favourite)}
+          onToggleFavourite={(e) => handleSaveProperty(property.id, e)}
+          className={isSwipeable ? "h-full aspect-auto" : undefined}
+        />
       </div>
 
         <div className={`p-3 flex flex-col flex-grow ${isSwipeable ? 'overflow-y-auto' : ''}`}>

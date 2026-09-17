@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import {
-  Heart,
   Share2,
   Scale,
   MapPin,
@@ -15,7 +14,6 @@ import {
   TrendingUp,
   Check,
   Sofa,
-  Camera,
   BadgeCheck,
 } from "lucide-react";
 
@@ -25,6 +23,7 @@ import { formatRelativeTime } from "@/lib/formatRelativeTime";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { PropertyCardGallery } from "@/components/property/PropertyCardGallery";
 import type { Property, PropertyEnrichment } from "@/types/property";
 
 export interface PropertyCardProps {
@@ -97,6 +96,10 @@ export function PropertyCard({
   const [isFavourite, setIsFavourite] = useState(property.is_favourite);
   const [justCopied, setJustCopied] = useState(false);
 
+  useEffect(() => {
+    setIsFavourite(property.is_favourite);
+  }, [property.is_favourite]);
+
   const favouriteMutation = useMutation({
     mutationFn: () => propertyAPI.toggleFavourite(property.id),
     onMutate: () => {
@@ -127,7 +130,6 @@ export function PropertyCard({
     : `${property.bhk_type} ${property.apartment_type}${
         property.apartment_name ? ` in ${property.apartment_name}` : ""
       }`;
-  const heroImage = property.images?.[0]?.url;
   const galleryCount = property.images?.length ?? 0;
   const ppsLabel = formatPricePerSqft(
     property.expected_price,
@@ -174,114 +176,75 @@ export function PropertyCard({
         className
       )}
     >
-      <div className="relative h-44 w-full overflow-hidden bg-muted">
-        {heroImage ? (
-          <img
-            src={heroImage}
-            alt={title}
-            loading="lazy"
-            className="h-full w-full max-w-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-muted text-sm text-muted-foreground">
-            No image available
-          </div>
-        )}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/40 to-transparent" />
+      <PropertyCardGallery
+        images={property.images}
+        alt={title}
+        propertyFor={property.property_for}
+        isFavourite={isFavourite}
+        onToggleFavourite={() => favouriteMutation.mutate()}
+      />
 
-        <div className="absolute left-2 top-2 flex max-w-[70%] flex-wrap gap-1">
-          <Badge
-            className={cn(
-              "border-transparent text-white shadow-soft-sm",
-              property.property_for === "Rent/Lease" ? "bg-trust-600" : "bg-brand-600"
-            )}
-          >
-            For {property.property_for === "Sell" ? "Sale" : property.property_for}
-          </Badge>
+      <div className="flex flex-1 flex-col gap-2 p-3.5">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-foreground">
+            {title}
+          </h3>
+          <div className="flex shrink-0 items-center gap-1">
+            {onCompareToggle ? (
+              <ActionIconButton
+                label={isComparing ? "Remove from compare" : "Add to compare"}
+                active={isComparing}
+                activeClassName="text-brand-700"
+                className="h-8 w-8 border border-border shadow-none"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCompareToggle(property.id);
+                }}
+              >
+                {isComparing ? <Check className="size-4" /> : <Scale className="size-4" />}
+              </ActionIconButton>
+            ) : null}
+            <ActionIconButton
+              label={justCopied ? "Link copied!" : "Share"}
+              className="h-8 w-8 border border-border shadow-none"
+              onClick={handleShare}
+            >
+              <Share2 className="size-4" />
+            </ActionIconButton>
+          </div>
+        </div>
+
+        <div className="flex min-h-[1.25rem] flex-wrap items-center gap-1.5">
           {isVerified ? (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-trust-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-soft-sm">
-              <BadgeCheck className="size-3" /> Verified
+            <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-trust-700">
+              <BadgeCheck className="size-3.5" /> Verified Property
             </span>
-          ) : null}
-          {property.verification_tier === "pending" ? (
-            <Badge className="border-transparent bg-amber-100 text-amber-800 shadow-soft-sm">
-              Pending
-            </Badge>
+          ) : property.verification_tier === "pending" ? (
+            <Badge className="border-transparent bg-amber-100 text-amber-800">Pending</Badge>
           ) : null}
           {postedBy === "Owner" ? (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-semibold text-gray-800 shadow-soft-sm">
-              <ShieldCheck className="size-3 text-trust-600" /> Direct owner
+            <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-muted-foreground">
+              <ShieldCheck className="size-3.5 text-trust-600" /> Owner Listed
             </span>
           ) : postedBy ? (
-            <span className="inline-flex items-center rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-semibold text-gray-700 shadow-soft-sm">
-              {postedBy}
-            </span>
+            <span className="text-[11px] font-medium text-muted-foreground">{postedBy}</span>
           ) : null}
           {enrichment?.isFeatured ? (
-            <Badge variant="accent" className="border-transparent bg-accent text-white shadow-soft-sm">
+            <Badge variant="accent" className="border-transparent bg-accent text-white">
               <Star className="size-3" /> Featured
             </Badge>
           ) : null}
           {enrichment?.isPremium ? (
-            <Badge className="border-transparent bg-brand-800 text-white shadow-soft-sm">
+            <Badge className="border-transparent bg-brand-800 text-white">
               <Sparkles className="size-3" /> Premium
             </Badge>
           ) : null}
-        </div>
-
-        <div className="absolute right-2 top-2 z-[1]">
-          <ActionIconButton
-            label={isFavourite ? "Remove from favourites" : "Save to favourites"}
-            active={isFavourite}
-            activeClassName="text-rose-600"
-            className="h-9 w-9 shadow-md"
-            onClick={(e) => {
-              e.stopPropagation();
-              favouriteMutation.mutate();
-            }}
-          >
-            <Heart className={cn("size-4", isFavourite && "fill-rose-600 text-rose-600")} />
-          </ActionIconButton>
-        </div>
-
-        <div className="absolute bottom-2 left-2 right-12 flex flex-wrap items-center gap-1.5">
-          {galleryCount > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white">
-              <Camera className="size-3" />
-              {galleryCount}
-            </span>
-          ) : null}
           {showVerifiedPhotos ? (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-trust-700/90 px-2 py-0.5 text-[10px] font-semibold text-white">
+            <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-trust-700">
               <Check className="size-3" /> Verified photos
             </span>
           ) : null}
         </div>
-
-        <div className="absolute right-2 top-12 flex flex-col gap-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
-          {onCompareToggle ? (
-            <ActionIconButton
-              label={isComparing ? "Remove from compare" : "Add to compare"}
-              active={isComparing}
-              activeClassName="text-brand-700"
-              onClick={(e) => {
-                e.stopPropagation();
-                onCompareToggle(property.id);
-              }}
-            >
-              {isComparing ? <Check className="size-4" /> : <Scale className="size-4" />}
-            </ActionIconButton>
-          ) : null}
-          <ActionIconButton label={justCopied ? "Link copied!" : "Share"} onClick={handleShare}>
-            <Share2 className="size-4" />
-          </ActionIconButton>
-        </div>
-      </div>
-
-      <div className="flex flex-1 flex-col gap-2 p-3.5">
-        <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-foreground">
-          {title}
-        </h3>
 
         <div className="flex min-h-[1.75rem] flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span className="font-display text-xl font-semibold text-brand-700">

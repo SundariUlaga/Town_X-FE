@@ -4,7 +4,7 @@ import {
   Heart, Phone, Mail, MapPin, Home,
   Bed, Bath, Square, Car, Building2,
   ChevronLeft, ChevronRight, User, Shield, Clock, X, Flag,
-  Share2, BadgeCheck, Maximize2
+  Share2, BadgeCheck, Maximize2, Images
 } from 'lucide-react';
 import { propertyAPI, enquiryAPI, reportAPI } from '../services/api';
 import { useAuth, ROLE_HOME_ROUTE } from '@/context/AuthContext';
@@ -374,6 +374,16 @@ export default function PropertyDetails() {
             />
             <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
 
+            {property.property_for ? (
+              <span
+                className={`absolute left-3 top-3 z-[1] rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-soft-sm ${
+                  property.property_for === "Rent/Lease" ? "bg-trust-600" : "bg-emerald-500"
+                }`}
+              >
+                {property.property_for === "Sell" ? "FOR SALE" : property.property_for === "Rent/Lease" ? "FOR RENT" : `FOR ${property.property_for}`}
+              </span>
+            ) : null}
+
             {property.images && property.images.length > 1 && (
               <>
                 <WithTooltip label="Previous image" side="right">
@@ -411,8 +421,9 @@ export default function PropertyDetails() {
                     <Maximize2 size={16} />
                   </button>
                 </WithTooltip>
-                <div className="bg-black/70 text-white px-3 py-1.5 rounded-full text-sm font-medium">
-                  {currentImageIndex + 1} / {property.images.length}
+                <div className="bg-black/70 text-white px-3 py-1.5 rounded-md text-sm font-medium inline-flex items-center gap-1.5">
+                  <Images size={14} />
+                  {property.images.length} {property.images.length === 1 ? "Photo" : "Photos"}
                 </div>
               </div>
             )}

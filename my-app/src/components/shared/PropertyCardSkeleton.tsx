@@ -18,7 +18,7 @@ export function PropertyCardSkeleton({ className, compact = false }: PropertyCar
       )}
       aria-hidden
     >
-      <Bone className={cn("w-full", compact ? "h-40" : "h-44")} />
+      <Bone className={cn("w-full rounded-none", compact ? "aspect-[16/9]" : "aspect-[16/9]")} />
       <div className="flex flex-col gap-2.5 p-4">
         <Bone className="h-4 w-4/5" />
         <Bone className="h-6 w-1/3" />
