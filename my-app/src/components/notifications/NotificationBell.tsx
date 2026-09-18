@@ -23,9 +23,8 @@ import TownLoader from "@/components/shared/TownLoader";
 import { WithTooltip } from "@/components/ui/WithTooltip";
 import type { AppNotification, NotificationType } from "@/types/notification";
 
-const TYPE_META: Record<
-  NotificationType,
-  { icon: typeof Bell; className: string }
+const TYPE_META: Partial<
+  Record<NotificationType, { icon: typeof Bell; className: string }>
 > = {
   search_match: { icon: Search, className: "bg-brand-50 text-brand-700" },
   new_property: { icon: Building2, className: "bg-brand-50 text-brand-700" },
@@ -36,6 +35,10 @@ const TYPE_META: Record<
   ad_rejected: { icon: MessageSquare, className: "bg-red-50 text-red-700" },
   ad_changes_requested: { icon: MessageSquare, className: "bg-orange-50 text-orange-800" },
   ad_published: { icon: Megaphone, className: "bg-green-50 text-green-800" },
+  property_enquiry: { icon: MessageSquare, className: "bg-brand-50 text-brand-700" },
+  advertisement_enquiry: { icon: MessageSquare, className: "bg-brand-50 text-brand-700" },
+  enquiry_closed: { icon: MessageSquare, className: "bg-trust-50 text-trust-700" },
+  testimonial_pending: { icon: Sparkles, className: "bg-brand-50 text-brand-700" },
 };
 
 function NotificationRow({
@@ -45,7 +48,10 @@ function NotificationRow({
   item: AppNotification;
   onOpen: (item: AppNotification) => void;
 }) {
-  const meta = TYPE_META[item.type] ?? TYPE_META.new_property;
+  const meta = TYPE_META[item.type] ?? TYPE_META.new_property ?? {
+    icon: Bell,
+    className: "bg-brand-50 text-brand-700",
+  };
   const Icon = meta.icon;
 
   return (

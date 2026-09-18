@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 import DynamicLandingPage from "./components/DynamicLandingPage";
 import AboutUsPage from "@/components/legal/AboutUsPage";
@@ -10,6 +10,8 @@ import { AuthRouteRedirect } from "./components/auth/AuthRouteRedirect";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { AuthDrawerProvider } from "@/context/AuthDrawerContext";
 import PageLoader from "@/components/shared/PageLoader";
+import { PageTransition } from "@/components/shared/PageTransition";
+import { CompareBar } from "@/components/compare/CompareBar";
 
 const HomePage = lazy(() => import("./components/HomePage"));
 const StoryViewer = lazy(() => import("./components/StoryViewer"));
@@ -37,11 +39,11 @@ function Lazy({ children }) {
   return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
 }
 
-function App() {
+function AppRoutes() {
+  const location = useLocation();
   return (
-    <Router>
-      <AuthDrawerProvider>
-        <Routes>
+    <PageTransition location={location}>
+      <Routes location={location}>
           <Route path="/" element={<DynamicLandingPage />} />
           <Route path="/about" element={<AboutUsPage />} />
           <Route path="/terms" element={<TermsPage />} />
@@ -271,7 +273,17 @@ function App() {
           </Route>
 
           <Route path="*" element={<Lazy><NotFoundPage /></Lazy>} />
-        </Routes>
+      </Routes>
+    </PageTransition>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AuthDrawerProvider>
+        <AppRoutes />
+        <CompareBar />
       </AuthDrawerProvider>
     </Router>
   );

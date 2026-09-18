@@ -25,6 +25,7 @@ import { PropertyLocalityMap } from "@/components/property/PropertyLocalityMap";
 import { SimilarPropertiesRail } from "@/components/property/SimilarPropertiesRail";
 import { AmenityIconGrid } from "@/components/property/AmenityIconGrid";
 import { Dropdown } from "@/components/ui/dropdown";
+import { listingVerificationLabel, listingVerificationTier } from "@/lib/listingVerification";
 
 const DEFAULT_ENQUIRY_MESSAGE =
   "Hi, I'm interested in this property. Please share more details.";
@@ -125,6 +126,7 @@ export default function PropertyDetails() {
   };
 
   const isOwnListing = Boolean(user && property?.owner_id && property.owner_id === user.id);
+  const listingVerifyTone = listingVerificationTier(property?.verification_tier);
   const listingLive =
     !property?.status || String(property.status).toUpperCase() === 'PUBLISHED';
   const isKycVerified = user?.kyc_status === 'verified';
@@ -610,11 +612,19 @@ export default function PropertyDetails() {
                     <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-xs text-gray-700 border border-gray-200">
                       <Shield size={11} /> ID verified
                     </span>
-                    {property.verification_tier ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-xs text-gray-700 border border-gray-200 capitalize">
-                        <BadgeCheck size={11} /> {String(property.verification_tier).replace(/_/g, " ")}
+                    {listingVerifyTone === "verified" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                        <BadgeCheck size={11} /> Verified listing
                       </span>
-                    ) : null}
+                    ) : listingVerifyTone === "pending" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 border border-amber-200">
+                        <Shield size={11} /> Verification pending
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-xs text-gray-600 border border-gray-200">
+                        <Shield size={11} /> Listing not verified
+                      </span>
+                    )}
                   </div>
                   <p className="mt-2 text-xs text-gray-500 inline-flex items-center gap-1">
                     <Clock size={12} /> Usually responds within a few hours
@@ -845,12 +855,19 @@ export default function PropertyDetails() {
                     <BadgeCheck size={16} className="text-emerald-500" />
                   </div>
                   <div className="mt-1.5 flex flex-wrap gap-1">
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                      Phone verified
-                    </span>
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                      ID verified
-                    </span>
+                    {listingVerifyTone === "verified" ? (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                        Verified listing
+                      </span>
+                    ) : listingVerifyTone === "pending" ? (
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                        Verification pending
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                        Listing not verified
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1.5 text-xs text-gray-500 inline-flex items-center gap-1">
                     <Clock size={12} /> Usually responds within a few hours

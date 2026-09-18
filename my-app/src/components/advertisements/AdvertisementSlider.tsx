@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, MapPin, Megaphone, Phone } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Megaphone } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
@@ -19,6 +19,7 @@ import { WithTooltip } from "@/components/ui/WithTooltip";
 import { useAuth } from "@/context/AuthContext";
 import { useAuthDrawer } from "@/context/AuthDrawerContext";
 import type { Advertisement } from "@/types/advertisement";
+import { AdEnquirePanel } from "@/components/home/AdEnquirePanel";
 
 export function AdvertisementSlider() {
   const navigate = useNavigate();
@@ -108,10 +109,8 @@ export function AdvertisementSlider() {
   };
 
   const handleEnquiry = (item: Advertisement) => {
-    advertisementAPI.track(item.id, "enquiry").catch(() => {});
-    if (item.contact_phone) {
-      window.location.href = `tel:${item.contact_phone}`;
-    }
+    advertisementAPI.track(item.id, "view").catch(() => {});
+    setDetailAd(item);
   };
 
   return (
@@ -140,11 +139,9 @@ export function AdvertisementSlider() {
             >
               {ad.button_text || "Learn more"}
             </Button>
-            {ad.contact_phone ? (
-              <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10" onClick={() => handleEnquiry(ad)}>
-                Enquire
-              </Button>
-            ) : null}
+            <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10" onClick={() => handleEnquiry(ad)}>
+              Enquire
+            </Button>
           </div>
         </div>
 
@@ -232,20 +229,8 @@ export function AdvertisementSlider() {
 
               <MarkdownContent content={detailAd.description} emptyFallback="More details coming soon." />
 
-              <DialogFooter>
-                {detailAd.contact_phone ? (
-                  <Button
-                    type="button"
-                    className="bg-brand-500 hover:bg-brand-700 text-white"
-                    onClick={() => handleEnquiry(detailAd)}
-                  >
-                    <Phone className="mr-1.5 size-4" />
-                    Call / Enquire
-                  </Button>
-                ) : null}
-                <Button type="button" variant="outline" onClick={() => setDetailAd(null)}>
-                  Close
-                </Button>
+              <DialogFooter className="sm:flex-col">
+                <AdEnquirePanel ad={detailAd} />
               </DialogFooter>
             </>
           ) : null}

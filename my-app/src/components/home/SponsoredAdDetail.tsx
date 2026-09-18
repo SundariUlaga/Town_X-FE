@@ -1,6 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Building2,
@@ -8,9 +7,9 @@ import {
   Phone,
   Mail,
   Sparkles,
-  ArrowRight,
   X,
   Tag,
+  MessageSquare,
 } from "lucide-react";
 
 import type { Advertisement } from "@/types/advertisement";
@@ -18,6 +17,7 @@ import { advertisementAPI } from "@/services/advertisementAPI";
 import { Button } from "@/components/ui/button";
 import MarkdownContent from "@/components/shared/MarkdownContent";
 import { cn } from "@/lib/utils";
+import { AdEnquirePanel } from "@/components/home/AdEnquirePanel";
 
 type SponsoredAdDetailProps = {
   ad: Advertisement | null;
@@ -25,8 +25,12 @@ type SponsoredAdDetailProps = {
 };
 
 export function SponsoredAdDetail({ ad, onClose }: SponsoredAdDetailProps) {
-  const navigate = useNavigate();
   const reduceMotion = useReducedMotion() ?? false;
+  const [showEnquire, setShowEnquire] = useState(false);
+
+  useEffect(() => {
+    setShowEnquire(false);
+  }, [ad?.id]);
 
   useEffect(() => {
     if (!ad) return;
@@ -43,18 +47,8 @@ export function SponsoredAdDetail({ ad, onClose }: SponsoredAdDetailProps) {
     };
   }, [ad, onClose]);
 
-  const handlePrimary = () => {
-    if (!ad) return;
-    advertisementAPI.track(ad.id, "click").catch(() => {});
-    onClose();
-    if (ad.property_id) navigate(`/property/${ad.property_id}`);
-    else if (ad.contact_phone) window.location.href = `tel:${ad.contact_phone}`;
-    else navigate("/advertise/submit");
-  };
-
-  const handleEnquire = () => {
+  const handleCall = () => {
     if (!ad?.contact_phone) return;
-    advertisementAPI.track(ad.id, "enquiry").catch(() => {});
     window.location.href = `tel:${ad.contact_phone}`;
   };
 
@@ -95,7 +89,6 @@ export function SponsoredAdDetail({ ad, onClose }: SponsoredAdDetailProps) {
             transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.85 }}
             style={{ transformPerspective: 1200 }}
           >
-            {/* Hero */}
             <div className="relative h-52 shrink-0 overflow-hidden sm:h-60">
               <motion.div
                 layoutId={`sponsored-banner-${ad.id}`}
@@ -165,7 +158,6 @@ export function SponsoredAdDetail({ ad, onClose }: SponsoredAdDetailProps) {
               </div>
             </div>
 
-            {/* Body — staggered */}
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
               <motion.div
                 className="flex flex-wrap gap-2"
@@ -243,27 +235,28 @@ export function SponsoredAdDetail({ ad, onClose }: SponsoredAdDetailProps) {
               )}
             </div>
 
-            <motion.div
-              className="flex shrink-0 gap-2 border-t border-gray-100 bg-white px-4 py-3 sm:px-5"
-              initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.36, type: "spring", stiffness: 340, damping: 30 }}
-            >
-              {ad.contact_phone ? (
-                <Button type="button" variant="outline" className="flex-1" onClick={handleEnquire}>
-                  <Phone className="size-4" />
-                  Call
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                className="min-w-0 flex-[1.4] bg-brand-600 hover:bg-brand-700"
-                onClick={handlePrimary}
-              >
-                {ad.button_text || (ad.property_id ? "View listing" : "Learn more")}
-                <ArrowRight className="size-4" />
-              </Button>
-            </motion.div>
+            <div className="shrink-0 border-t border-gray-100 bg-white px-4 py-3 sm:px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              {showEnquire ? (
+                <AdEnquirePanel ad={ad} onBack={() => setShowEnquire(false)} />
+              ) : (
+                <div className="flex gap-2">
+                  {ad.contact_phone ? (
+                    <Button type="button" variant="outline" className="flex-1" onClick={handleCall}>
+                      <Phone className="size-4" />
+                      Call
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    className="flex-1 bg-brand-600 hover:bg-brand-700"
+                    onClick={() => setShowEnquire(true)}
+                  >
+                    <MessageSquare className="size-4" />
+                    Enquire
+                  </Button>
+                </div>
+              )}
+            </div>
           </motion.div>
         </div>
       ) : null}

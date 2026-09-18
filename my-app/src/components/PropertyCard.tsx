@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { PropertyCardGallery } from "@/components/property/PropertyCardGallery";
+import { useCompare, MAX_COMPARE } from "@/context/CompareContext";
+import { useToast } from "@/components/ui/toast";
 import type { Property, PropertyEnrichment } from "@/types/property";
 
 export interface PropertyCardProps {
@@ -99,6 +101,23 @@ export function PropertyCard({
 }: PropertyCardProps) {
   const [isFavourite, setIsFavourite] = useState(property.is_favourite);
   const [justCopied, setJustCopied] = useState(false);
+  const compare = useCompare();
+  const { toast } = useToast();
+  const comparing = isComparing || compare.isComparing(property.id);
+
+  const handleCompareToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!comparing && !compare.canAdd) {
+      toast(`You can compare up to ${MAX_COMPARE} listings`, "error");
+      return;
+    }
+    if (onCompareToggle) {
+      onCompareToggle(property.id);
+      return;
+    }
+    compare.toggle(property.id);
+  };
 
   useEffect(() => {
     setIsFavourite(property.is_favourite);
@@ -221,6 +240,11 @@ export function PropertyCard({
               {listingTone.label}
             </span>
           ) : null}
+          {isVerified ? (
+            <span className="absolute bottom-1 left-1 rounded bg-white/95 px-1 py-px text-[9px] font-semibold text-emerald-700">
+              Verified
+            </span>
+          ) : null}
           <button
             type="button"
             aria-label={isFavourite ? "Remove from favourites" : "Save to favourites"}
@@ -236,9 +260,23 @@ export function PropertyCard({
         </div>
 
         <div className="min-w-0 flex-1 py-0.5">
-          <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug text-foreground">
-            {title}
-          </h3>
+          <div className="flex items-start justify-between gap-1">
+            <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug text-foreground">
+              {title}
+            </h3>
+            <button
+              type="button"
+              aria-label={comparing ? "Remove from compare" : "Add to compare"}
+              aria-pressed={comparing}
+              onClick={handleCompareToggle}
+              className={cn(
+                "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border border-border text-gray-500 hover:bg-gray-50",
+                comparing && "border-brand-200 bg-brand-50 text-brand-700"
+              )}
+            >
+              {comparing ? <Check className="size-3.5" /> : <Scale className="size-3.5" />}
+            </button>
+          </div>
           <p className="mt-0.5 font-display text-base font-semibold text-brand-700">
             {formatInr(property.expected_price, { compact: true })}
             {property.property_for === "Rent/Lease" ? (
@@ -296,20 +334,15 @@ export function PropertyCard({
             {title}
           </h3>
           <div className="flex shrink-0 items-center gap-1">
-            {onCompareToggle ? (
-              <ActionIconButton
-                label={isComparing ? "Remove from compare" : "Add to compare"}
-                active={isComparing}
+            <ActionIconButton
+                label={comparing ? "Remove from compare" : "Add to compare"}
+                active={comparing}
                 activeClassName="text-brand-700"
                 className="h-8 w-8 border border-border shadow-none"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCompareToggle(property.id);
-                }}
+                onClick={handleCompareToggle}
               >
-                {isComparing ? <Check className="size-4" /> : <Scale className="size-4" />}
+                {comparing ? <Check className="size-4" /> : <Scale className="size-4" />}
               </ActionIconButton>
-            ) : null}
             <ActionIconButton
               label={justCopied ? "Link copied!" : "Share"}
               className="h-8 w-8 border border-border shadow-none"

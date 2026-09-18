@@ -214,12 +214,20 @@ export const enquiryAPI = {
     const { data } = await api.post('/api/enquiries', payload);
     return data;
   },
+  createAd: async (payload) => {
+    const { data } = await api.post('/api/enquiries/advertisements', payload);
+    return data;
+  },
   mine: async () => {
     const { data } = await api.get('/api/enquiries/mine');
     return data;
   },
   received: async () => {
     const { data } = await api.get('/api/enquiries/received');
+    return data;
+  },
+  close: async (id, source = 'property') => {
+    const { data } = await api.post(`/api/enquiries/${id}/close`, { source });
     return data;
   },
 };

@@ -8,7 +8,7 @@ type HomeInsightsRailProps = {
 
 export function HomeInsightsRail({ className }: HomeInsightsRailProps) {
   return (
-    <aside className={cn("space-y-6 lg:sticky lg:top-20", className)}>
+    <aside className={cn("space-y-4 lg:sticky lg:top-20", className)}>
       <HomeNewsRail />
       <HomeFinanceTools />
     </aside>

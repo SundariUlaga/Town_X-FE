@@ -22,6 +22,7 @@ import { useCompare } from "@/context/CompareContext";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Pagination } from "@/components/ui/pagination";
 import { useClientPagination } from "@/hooks/useClientPagination";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 
 const SORT_OPTIONS = [
   { value: "recent", label: "Most recent" },
@@ -30,6 +31,19 @@ const SORT_OPTIONS = [
 ];
 
 const FEED_PAGE_SIZE = 12;
+
+const EMPTY_FILTERS = {
+  bhkType: '',
+  minPrice: '',
+  maxPrice: '',
+  propertyFor: '',
+  propertyType: '',
+  furnishing: '',
+  parking: false,
+  amenities: [],
+  postedBy: '',
+  apartmentType: '',
+};
 
 export default function PropertyFeed() {
   const location = useLocation();
@@ -52,18 +66,8 @@ export default function PropertyFeed() {
   const [sortBy, setSortBy] = useState('recent');
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'map'
   const [mapSelectedId, setMapSelectedId] = useState(null);
-  const [filters, setFilters] = useState({
-    bhkType: '',
-    minPrice: '',
-    maxPrice: '',
-    propertyFor: '',
-    propertyType: '',
-    furnishing: '',
-    parking: false,
-    amenities: [],
-    postedBy: '',
-    apartmentType: '',
-  });
+  const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
+  const filterSheetRef = useFocusTrap(showFilterModal, () => setShowFilterModal(false));
 
   const feedPageSizeLimit = isMobile ? Math.max(properties.length, 1) : FEED_PAGE_SIZE;
   const feedPagination = useClientPagination(properties, feedPageSizeLimit);
@@ -95,6 +99,15 @@ export default function PropertyFeed() {
   }, [isMobile, viewMode]);
 
   useEffect(() => {
+    if (!showFilterModal) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [showFilterModal]);
+
+  useEffect(() => {
     const state = location.state;
     if (!state) return;
 
@@ -104,16 +117,9 @@ export default function PropertyFeed() {
 
     if (state.resetFilters) {
       setFilters({
-        bhkType: "",
-        minPrice: "",
-        maxPrice: "",
+        ...EMPTY_FILTERS,
         propertyFor: state.propertyFor || "",
         propertyType: state.propertyType || "",
-        furnishing: "",
-        parking: false,
-        amenities: [],
-        postedBy: "",
-        apartmentType: "",
       });
     } else if (
       state.propertyFor !== undefined ||
@@ -284,6 +290,23 @@ export default function PropertyFeed() {
     handleSearch({ preventDefault: () => {} }, location.name);
   };
 
+  const clearFilters = () => {
+    setFilters({ ...EMPTY_FILTERS });
+  };
+
+  const removeFilter = (key) => {
+    setFilters((prev) => {
+      if (key === 'price') return { ...prev, minPrice: '', maxPrice: '' };
+      if (key === 'amenities') return { ...prev, amenities: [] };
+      if (key === 'parking') return { ...prev, parking: false };
+      return { ...prev, [key]: '' };
+    });
+  };
+
+  const applyFilters = () => {
+    setShowFilterModal(false);
+  };
+
   const hasActiveFilters = Boolean(
     filters.bhkType ||
       filters.minPrice ||
@@ -349,8 +372,7 @@ export default function PropertyFeed() {
       <div className="bg-white border-b border-gray-200 sticky top-[48px] sm:top-[52px] md:top-[85px] z-40 shadow-soft-sm">
         <div className="max-w-[90rem] mx-auto px-3 sm:px-4 py-3 sm:py-4">
           {/* Search and Filter Row */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-3">
-            {/* Search Bar */}
+          <div className="flex flex-col gap-2 mb-3">
             <LocationPicker
               mode="freetext"
               value={searchQuery}
@@ -362,26 +384,66 @@ export default function PropertyFeed() {
               className="flex-1 min-w-0 w-full"
             />
 
-            {/* Filter Button — modal on Browse (vs sidebar on Home) keeps the grid fullscreen */}
-            <WithTooltip label={hasActiveFilters ? "Edit active filters" : "Open filters"}>
-              <button
-                onClick={() => setShowFilterModal(true)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-control text-sm font-medium whitespace-nowrap transition-all border ${
-                  hasActiveFilters
-                    ? 'bg-brand-50 text-brand-700 border-brand-300 shadow-soft-sm'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                }`}
-                aria-label="Open filters"
-              >
-                <SlidersHorizontal size={18} />
-                <span className="hidden sm:inline">Filters</span>
-                {hasActiveFilters ? (
-                  <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white">
-                    {activeFilterChips.length}
-                  </span>
-                ) : null}
-              </button>
-            </WithTooltip>
+            <div className="flex items-center gap-2">
+              <WithTooltip label={hasActiveFilters ? "Edit active filters" : "Open filters"}>
+                <button
+                  type="button"
+                  onClick={() => setShowFilterModal(true)}
+                  className={`inline-flex shrink-0 items-center gap-2 px-3.5 py-2.5 rounded-control text-sm font-medium whitespace-nowrap transition-all border ${
+                    hasActiveFilters
+                      ? 'bg-brand-50 text-brand-700 border-brand-300 shadow-soft-sm'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                  aria-label="Open filters"
+                >
+                  <SlidersHorizontal size={18} />
+                  <span>Filters</span>
+                  {hasActiveFilters ? (
+                    <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white">
+                      {activeFilterChips.length}
+                    </span>
+                  ) : null}
+                </button>
+              </WithTooltip>
+
+              <Dropdown
+                value={sortBy}
+                onChange={setSortBy}
+                options={SORT_OPTIONS}
+                aria-label="Sort listings"
+                size="sm"
+                fullWidth
+                className="min-w-0 flex-1 sm:max-w-[16rem] sm:flex-none"
+                triggerClassName="bg-white"
+              />
+
+              {!isMobile ? (
+                <div className="ml-auto hidden sm:inline-flex shrink-0 rounded-control border border-gray-200 bg-gray-50 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('list')}
+                    className={`inline-flex items-center gap-1.5 rounded-[0.5rem] px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      viewMode === 'list' ? 'bg-white text-brand-800 shadow-soft-sm' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    aria-pressed={viewMode === 'list'}
+                  >
+                    <LayoutGrid className="size-3.5" />
+                    List
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('map')}
+                    className={`inline-flex items-center gap-1.5 rounded-[0.5rem] px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      viewMode === 'map' ? 'bg-white text-brand-800 shadow-soft-sm' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    aria-pressed={viewMode === 'map'}
+                  >
+                    <Map className="size-3.5" />
+                    Map
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
 
           {activeFilterChips.length > 0 ? (
@@ -407,48 +469,6 @@ export default function PropertyFeed() {
               </button>
             </div>
           ) : null}
-
-          {/* Sort + view toggle */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <Dropdown
-                value={sortBy}
-                onChange={setSortBy}
-                options={SORT_OPTIONS}
-                aria-label="Sort listings"
-                size="sm"
-                className="w-full max-w-[16rem] sm:w-auto"
-                triggerClassName="bg-white"
-              />
-            </div>
-
-            {!isMobile ? (
-              <div className="hidden sm:inline-flex shrink-0 rounded-control border border-gray-200 bg-gray-50 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('list')}
-                  className={`inline-flex items-center gap-1.5 rounded-[0.5rem] px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    viewMode === 'list' ? 'bg-white text-brand-800 shadow-soft-sm' : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                  aria-pressed={viewMode === 'list'}
-                >
-                  <LayoutGrid className="size-3.5" />
-                  List
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('map')}
-                  className={`inline-flex items-center gap-1.5 rounded-[0.5rem] px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    viewMode === 'map' ? 'bg-white text-brand-800 shadow-soft-sm' : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                  aria-pressed={viewMode === 'map'}
-                >
-                  <Map className="size-3.5" />
-                  Map
-                </button>
-              </div>
-            ) : null}
-          </div>
 
           {!loading && !error && properties.length > 0 ? (
             <p className="mt-2 text-xs text-gray-500">
@@ -580,7 +600,7 @@ export default function PropertyFeed() {
             {isMobile ? (
               <div className="flex flex-col gap-2.5">
                 {pagedProperties.map((property) => (
-                  <PropertyCard
+                    <PropertyCard
                     key={property.id}
                     variant="list"
                     property={property}
@@ -590,6 +610,8 @@ export default function PropertyFeed() {
                         prev.map((p) => (p.id === id ? { ...p, is_favourite: isFav } : p))
                       )
                     }
+                    onCompareToggle={toggleCompare}
+                    isComparing={isComparing(property.id)}
                   />
                 ))}
               </div>
@@ -631,28 +653,38 @@ export default function PropertyFeed() {
 
       {/* Filter Modal */}
       {showFilterModal && (
-        <div className="fixed inset-0 bg-black/40 z-[9999] flex items-end md:items-center justify-center backdrop-blur-sm px-2 safe-bottom">
-          <div className="bg-white w-full md:w-[520px] md:rounded-card rounded-t-card max-h-[92dvh] overflow-y-auto shadow-soft-lg">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex items-start justify-between gap-3">
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:px-4">
+          <button
+            type="button"
+            className="absolute inset-0"
+            aria-label="Close filters"
+            onClick={() => setShowFilterModal(false)}
+          />
+          <div
+            ref={filterSheetRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="feed-filters-title"
+            className="relative z-[1] flex w-full max-h-[min(92dvh,720px)] flex-col overflow-hidden rounded-t-card bg-white shadow-soft-lg sm:max-w-[520px] sm:rounded-card"
+          >
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-200 px-5 py-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+                <h2 id="feed-filters-title" className="text-lg font-semibold text-gray-900">Filters</h2>
                 <p className="mt-0.5 text-xs text-gray-500">
                   Narrow this browse view — same criteria as Home, in a focused panel.
                 </p>
               </div>
-              <WithTooltip label="Close filters">
-                <button
-                  type="button"
-                  onClick={() => setShowFilterModal(false)}
-                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
-                  aria-label="Close filters"
-                >
-                  <X size={20} className="text-gray-600" />
-                </button>
-              </WithTooltip>
+              <button
+                type="button"
+                onClick={() => setShowFilterModal(false)}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+                aria-label="Close filters"
+              >
+                <X size={20} className="text-gray-600" />
+              </button>
             </div>
 
-            <div className="p-5 space-y-5">
+            <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-5">
               <LocationCascadeFilter />
 
               <div>
@@ -740,14 +772,16 @@ export default function PropertyFeed() {
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-white border-t border-gray-200 px-5 py-4 flex gap-3">
+            <div className="sticky bottom-0 shrink-0 border-t border-gray-200 bg-white px-5 py-4 flex gap-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <button
+                type="button"
                 onClick={clearFilters}
                 className="flex-1 py-2.5 px-4 rounded-control border border-gray-300 text-gray-700 font-medium text-sm hover:bg-gray-50 transition-colors"
               >
                 Clear All
               </button>
               <button
+                type="button"
                 onClick={applyFilters}
                 className="flex-1 py-2.5 px-4 rounded-control text-white font-medium text-sm transition-colors bg-brand-500 hover:bg-brand-700"
               >

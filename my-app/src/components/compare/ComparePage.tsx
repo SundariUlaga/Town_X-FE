@@ -8,6 +8,8 @@ import { propertyAPI } from "@/services/api";
 import { formatInr, formatPricePerSqft } from "@/lib/finance";
 import type { Property } from "@/types/property";
 import TownLoader from "@/components/shared/TownLoader";
+import { listingVerificationLabel, listingVerificationTier } from "@/lib/listingVerification";
+import { cn } from "@/lib/utils";
 
 const ROWS: { key: string; label: string; get: (p: Property) => string }[] = [
   {
@@ -43,8 +45,8 @@ const ROWS: { key: string; label: string; get: (p: Property) => string }[] = [
   { key: "posted", label: "Posted by", get: (p) => p.user_type || "—" },
   {
     key: "verify",
-    label: "Verification",
-    get: (p) => p.verification_tier || "unverified",
+    label: "Listing verification",
+    get: (p) => listingVerificationLabel(p.verification_tier),
   },
 ];
 
@@ -56,7 +58,8 @@ export default function ComparePage() {
     queries: ids.map((id) => ({
       queryKey: ["property", id],
       queryFn: () => propertyAPI.getPropertyById(id) as Promise<Property>,
-      staleTime: 60_000,
+      staleTime: 0,
+      refetchOnMount: "always" as const,
     })),
   });
 
@@ -154,11 +157,24 @@ export default function ComparePage() {
                     <th className="sticky left-0 bg-white px-3 py-2.5 text-left text-xs font-medium text-gray-500">
                       {row.label}
                     </th>
-                    {properties.map((p) => (
-                      <td key={`${p.id}-${row.key}`} className="px-3 py-2.5 text-gray-900">
+                    {properties.map((p) => {
+                      const isVerifyRow = row.key === "verify";
+                      const tone = isVerifyRow ? listingVerificationTier(p.verification_tier) : "none";
+                      return (
+                      <td
+                        key={`${p.id}-${row.key}`}
+                        className={cn(
+                          "px-3 py-2.5",
+                          isVerifyRow && tone === "verified" && "font-semibold text-emerald-700",
+                          isVerifyRow && tone === "pending" && "font-medium text-amber-700",
+                          isVerifyRow && tone === "none" && "text-gray-500",
+                          !isVerifyRow && "text-gray-900"
+                        )}
+                      >
                         {row.get(p)}
                       </td>
-                    ))}
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>

@@ -24,6 +24,7 @@ import { formatInr } from "@/lib/finance";
 import { activeTabClass, inactiveTabClass } from "@/lib/tabStyles";
 import CreatePostModal from "@/components/CreatePostModal.jsx";
 import { WithTooltip } from "@/components/ui/WithTooltip";
+import { EnquiryFeedbackActions } from "@/components/enquiries/EnquiryFeedbackActions";
 import type { Property } from "@/types/property";
 
 const STATUS_TABS = [
@@ -62,7 +63,9 @@ export default function OwnerDashboard() {
   const [editProperty, setEditProperty] = useState<Property | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [dashboardTab, setDashboardTab] = useState("listings");
+  const [dashboardTab, setDashboardTab] = useState(() =>
+    new URLSearchParams(window.location.search).get("tab") === "enquiries" ? "enquiries" : "listings"
+  );
 
   const openCreateModal = () => {
     setEditProperty(null);
@@ -75,6 +78,11 @@ export default function OwnerDashboard() {
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("tab") === "enquiries") setDashboardTab("enquiries");
+  }, [location.search]);
 
   const { data: properties = [], isLoading } = useQuery({
     queryKey: ["my-properties"],
@@ -105,12 +113,21 @@ export default function OwnerDashboard() {
     () =>
       (enquiriesQuery.data || []) as Array<{
         id: number;
-        property_id: number;
+        source?: "property" | "advertisement";
+        property_id?: number | null;
+        advertisement_id?: number | null;
         message: string;
         status: string;
         created_at: string;
+        title?: string;
         property_title?: string;
         buyer_name?: string;
+        buyer_phone?: string;
+        can_close?: boolean;
+        can_feedback?: boolean;
+        has_feedback?: boolean;
+        feedback_status?: string | null;
+        feedback_category?: string | null;
       }>,
     [enquiriesQuery.data]
   );
@@ -169,15 +186,21 @@ export default function OwnerDashboard() {
           ) : (
             <div className="space-y-3">
               {enquiriesPage.pageItems.map((enquiry) => {
-                const listing = properties.find((p) => p.id === enquiry.property_id);
+                const isAd = enquiry.source === "advertisement";
+                const listing = enquiry.property_id
+                  ? properties.find((p) => p.id === enquiry.property_id)
+                  : undefined;
                 const title =
+                  enquiry.title ||
                   enquiry.property_title ||
                   (listing
                     ? `${listing.bhk_type} ${listing.apartment_type}${listing.apartment_name ? ` in ${listing.apartment_name}` : ""}`
-                    : `Property #${enquiry.property_id}`);
+                    : isAd
+                      ? `Advertisement #${enquiry.advertisement_id}`
+                      : `Property #${enquiry.property_id}`);
                 const thumb = listing?.images?.[0]?.url;
                 return (
-                <Card key={enquiry.id} className="p-4">
+                <Card key={`${enquiry.source || "property"}-${enquiry.id}`} className="p-4">
                   <div className="flex flex-wrap items-start gap-3">
                     {thumb ? (
                       <img src={thumb} alt="" className="size-14 rounded-control object-cover shrink-0" />
@@ -186,24 +209,37 @@ export default function OwnerDashboard() {
                     )}
                     <div className="min-w-0 flex-1 flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <button
-                          type="button"
-                          className="text-sm font-semibold text-brand-600 hover:underline text-left"
-                          onClick={() => navigate(`/property/${enquiry.property_id}`)}
-                        >
-                          {title}
-                        </button>
+                        {isAd || !enquiry.property_id ? (
+                          <p className="text-sm font-semibold text-gray-900">{title}</p>
+                        ) : (
+                          <button
+                            type="button"
+                            className="text-sm font-semibold text-brand-600 hover:underline text-left"
+                            onClick={() => navigate(`/property/${enquiry.property_id}`)}
+                          >
+                            {title}
+                          </button>
+                        )}
+                        {isAd ? (
+                          <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-brand-700">
+                            Sponsored
+                          </p>
+                        ) : null}
                         {enquiry.buyer_name ? (
-                          <p className="mt-0.5 text-xs text-muted-foreground">From {enquiry.buyer_name}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            From {enquiry.buyer_name}
+                            {enquiry.buyer_phone ? ` · ${enquiry.buyer_phone}` : ""}
+                          </p>
                         ) : null}
                         <p className="mt-2 text-sm text-muted-foreground break-words">{enquiry.message}</p>
                       </div>
-                      <Badge className={enquiry.status === "NEW" ? "bg-brand-100 text-brand-800" : "bg-slate-100 text-slate-700"}>
+                      <Badge className={enquiry.status === "NEW" ? "bg-brand-100 text-brand-800" : enquiry.status === "CLOSED" ? "bg-trust-50 text-trust-800" : "bg-slate-100 text-slate-700"}>
                         {enquiry.status}
                       </Badge>
                     </div>
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">{new Date(enquiry.created_at).toLocaleString("en-IN")}</p>
+                  <EnquiryFeedbackActions enquiry={enquiry} queryKey={["enquiries-received"]} />
                 </Card>
                 );
               })}

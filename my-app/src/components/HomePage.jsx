@@ -14,6 +14,7 @@ import {
   Building2,
   Megaphone,
   Users2,
+  SlidersHorizontal,
 } from "lucide-react";
 import axios from "axios";
 import { propertyAPI, activityAPI } from "../services/api";
@@ -141,6 +142,16 @@ export default function HomePage() {
   const [sponsoredAds, setSponsoredAds] = useState([]);
   const [sponsoredLoading, setSponsoredLoading] = useState(true);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+
+  useEffect(() => {
+    if (!showMobileFilters) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [showMobileFilters]);
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -750,8 +761,8 @@ export default function HomePage() {
       />
 
       {/* 3-column band: filters | main | insights */}
-      <div className="mx-auto max-w-[90rem] px-4 py-6 lg:py-8">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:items-start">
+      <div className="mx-auto max-w-[90rem] px-4 py-4 lg:py-5">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start lg:gap-6">
           <div className="hidden min-w-0 lg:col-span-3 lg:block xl:col-span-2">
             <HomeFiltersSidebar
               defaultPropertyFor={
@@ -760,20 +771,19 @@ export default function HomePage() {
             />
           </div>
 
-          <div className="min-w-0 overflow-hidden space-y-8 lg:col-span-6 xl:col-span-7">
+          <div className="min-w-0 overflow-hidden space-y-5 lg:col-span-6 xl:col-span-7">
             {/* Mobile filters entry */}
-            <details className="rounded-card border border-gray-200 bg-white lg:hidden">
-              <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-gray-900">
+            <button
+              type="button"
+              onClick={() => setShowMobileFilters(true)}
+              className="flex w-full items-center justify-between gap-3 rounded-card border border-gray-200 bg-white px-4 py-3 text-left lg:hidden"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900">
+                <SlidersHorizontal className="size-4 text-brand-600" />
                 Filters
-              </summary>
-              <div className="border-t border-gray-100 px-4 pb-4 pt-2">
-                <HomeFiltersSidebar
-                  defaultPropertyFor={
-                    SEARCH_TABS.find((t) => t.key === activeSearchTab)?.propertyFor || ""
-                  }
-                />
-              </div>
-            </details>
+              </span>
+              <span className="text-xs font-medium text-brand-700">Adjust</span>
+            </button>
 
             {user?.role === "owner" ? (
               <YourListingsSection onPostProperty={handleCreatePost} />
@@ -796,7 +806,7 @@ export default function HomePage() {
             ) : null}
 
             <section>
-              <div className="mb-4 flex items-end justify-between gap-3">
+              <div className="mb-2.5 flex items-end justify-between gap-3">
                 <div>
                   <h2 className="font-display text-2xl font-semibold tracking-tight text-gray-900">
                     Recently added
@@ -836,7 +846,7 @@ export default function HomePage() {
               <div className="py-6 text-center text-sm text-gray-500">Loading recommendations…</div>
             ) : recommendedForYou.length > 0 ? (
               <section className="min-w-0">
-                <div className="mb-4 flex items-end justify-between gap-3">
+                <div className="mb-2.5 flex items-end justify-between gap-3">
                   <div>
                     <h2 className="font-display text-xl font-semibold text-gray-900">
                       Recommended for you
@@ -869,6 +879,7 @@ export default function HomePage() {
             ) : null}
 
             <SponsoredCarousel ads={sponsoredAds} loading={sponsoredLoading} />
+            <HomeTestimonials />
 
             {/* Mobile insights */}
             <div className="lg:hidden">
@@ -882,10 +893,8 @@ export default function HomePage() {
         </div>
       </div>
 
-      <HomeTestimonials />
-
       <footer className="mt-0 border-t border-gray-200 bg-white">
-        <div className="mx-auto max-w-[90rem] px-4 py-6">
+        <div className="mx-auto max-w-[90rem] px-4 py-4">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2.5">
               <TownExchangeLogo size={32} variant="full" />
@@ -900,6 +909,46 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      {showMobileFilters ? (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            aria-label="Close filters"
+            onClick={() => setShowMobileFilters(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="home-filters-title"
+            className="relative z-[1] flex max-h-[min(92dvh,720px)] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-soft-lg"
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
+              <h2 id="home-filters-title" className="text-base font-semibold text-gray-900">
+                Filters
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowMobileFilters(false)}
+                className="rounded-lg p-1.5 text-gray-600 hover:bg-gray-100"
+                aria-label="Close filters"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+              <HomeFiltersSidebar
+                showHeader={false}
+                className="h-full min-h-0 lg:static lg:max-h-none"
+                defaultPropertyFor={
+                  SEARCH_TABS.find((t) => t.key === activeSearchTab)?.propertyFor || ""
+                }
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <style>{`
         .scrollbar-hide::-webkit-scrollbar { display: none; }

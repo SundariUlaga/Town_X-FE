@@ -57,9 +57,14 @@ const emptyFilters: HomeFilterValues = {
 type HomeFiltersSidebarProps = {
   className?: string;
   defaultPropertyFor?: string;
+  showHeader?: boolean;
 };
 
-export function HomeFiltersSidebar({ className, defaultPropertyFor = "" }: HomeFiltersSidebarProps) {
+export function HomeFiltersSidebar({
+  className,
+  defaultPropertyFor = "",
+  showHeader = true,
+}: HomeFiltersSidebarProps) {
   const navigate = useNavigate();
   const { selectedLocation } = useLocationContext();
   const locationParams = getLocationFilterParams(selectedLocation);
@@ -168,10 +173,11 @@ export function HomeFiltersSidebar({ className, defaultPropertyFor = "" }: HomeF
   return (
     <aside
       className={cn(
-        "flex flex-col rounded-none border-0 bg-transparent lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)]",
+        "flex min-h-0 flex-col rounded-none border-0 bg-transparent lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)]",
         className
       )}
     >
+      {showHeader ? (
       <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 font-display text-base font-semibold text-gray-900">
           <SlidersHorizontal className="size-4 text-brand-600" />
@@ -183,6 +189,13 @@ export function HomeFiltersSidebar({ className, defaultPropertyFor = "" }: HomeF
           </button>
         ) : null}
       </div>
+      ) : activeCount > 0 ? (
+        <div className="mb-3 flex justify-end">
+          <button type="button" onClick={clearFilters} className="text-xs font-medium text-brand-700 hover:underline">
+            Clear ({activeCount})
+          </button>
+        </div>
+      ) : null}
 
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pb-3 text-sm lg:pr-1">
         <LocationCascadeFilter />

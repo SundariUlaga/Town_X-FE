@@ -9,6 +9,9 @@ export type NewsItem = {
   image_url?: string | null;
   published_at?: string | null;
   fetched_at?: string | null;
+  category?: string | null;
+  relevance_score?: number;
+  provider?: string | null;
 };
 
 export const newsAPI = {

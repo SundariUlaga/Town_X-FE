@@ -12,12 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { useLocationContext } from "@/context/LocationContext";
+import { EnquiryFeedbackActions, type EnquiryFeedbackRow } from "@/components/enquiries/EnquiryFeedbackActions";
 
-type EnquiryRow = {
-  id: number;
-  property_id: number;
+type EnquiryRow = EnquiryFeedbackRow & {
+  property_id?: number | null;
+  advertisement_id?: number | null;
+  title?: string | null;
   message: string;
-  status: string;
   created_at: string;
 };
 
@@ -34,7 +35,7 @@ export default function MyEnquiriesPage() {
   const empty = !query.isLoading && !query.isError && rows.length === 0;
 
   return (
-    <DashboardShell title="My enquiries" subtitle="Messages you sent to property owners">
+    <DashboardShell title="My enquiries" subtitle="Messages you sent to property owners and advertisers">
       {query.isLoading ? (
         <TownLoader size="md" label="Loading enquiries" minHeight="40vh" />
       ) : query.isError ? (
@@ -45,7 +46,7 @@ export default function MyEnquiriesPage() {
             <Mail className="mx-auto mb-3 size-10 text-muted-foreground" />
             <p className="font-medium text-foreground">No enquiries yet</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Browse listings and use Send enquiry on a property detail page.
+              Browse listings or sponsored projects and send a short message.
             </p>
             <Link to="/property-feed" className="mt-4 inline-block text-sm font-medium text-brand-600 hover:underline">
               Browse properties →
@@ -59,31 +60,53 @@ export default function MyEnquiriesPage() {
         </>
       ) : (
         <div className="space-y-3 pb-8">
-          {pageItems.map((enquiry) => (
-            <Card key={enquiry.id} className="p-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <Link
-                    to={`/property/${enquiry.property_id}`}
-                    className="text-sm font-semibold text-brand-600 hover:underline"
+          {pageItems.map((enquiry) => {
+            const isAd = enquiry.source === "advertisement";
+            const label =
+              enquiry.title ||
+              (isAd
+                ? `Advertisement #${enquiry.advertisement_id}`
+                : `Property #${enquiry.property_id}`);
+            return (
+              <Card key={`${enquiry.source || "property"}-${enquiry.id}`} className="p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    {isAd || !enquiry.property_id ? (
+                      <p className="text-sm font-semibold text-gray-900">{label}</p>
+                    ) : (
+                      <Link
+                        to={`/property/${enquiry.property_id}`}
+                        className="text-sm font-semibold text-brand-600 hover:underline"
+                      >
+                        {label}
+                      </Link>
+                    )}
+                    {isAd ? (
+                      <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-brand-700">
+                        Sponsored
+                      </p>
+                    ) : null}
+                    <p className="mt-2 text-sm text-muted-foreground break-words">{enquiry.message}</p>
+                  </div>
+                  <Badge
+                    className={
+                      enquiry.status === "NEW"
+                        ? "bg-brand-100 text-brand-800"
+                        : enquiry.status === "CLOSED"
+                          ? "bg-trust-50 text-trust-800"
+                          : "bg-slate-100 text-slate-700"
+                    }
                   >
-                    Property #{enquiry.property_id}
-                  </Link>
-                  <p className="mt-2 text-sm text-muted-foreground break-words">{enquiry.message}</p>
+                    {enquiry.status}
+                  </Badge>
                 </div>
-                <Badge
-                  className={
-                    enquiry.status === "NEW" ? "bg-brand-100 text-brand-800" : "bg-slate-100 text-slate-700"
-                  }
-                >
-                  {enquiry.status}
-                </Badge>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {new Date(enquiry.created_at).toLocaleString("en-IN")}
-              </p>
-            </Card>
-          ))}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {new Date(enquiry.created_at).toLocaleString("en-IN")}
+                </p>
+                <EnquiryFeedbackActions enquiry={enquiry} queryKey={["my-enquiries"]} />
+              </Card>
+            );
+          })}
           <Pagination
             page={page}
             pageCount={pageCount}

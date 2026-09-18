@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
   Bell,
   CircleHelp,
@@ -9,6 +9,7 @@ import {
 
 import { useAuth, ROLE_HOME_ROUTE } from "@/context/AuthContext";
 import AppNavbar from "@/components/shared/AppNavbar";
+import { NestedPageTransition } from "@/components/shared/PageTransition";
 import { cn } from "@/lib/utils";
 import { activeTabClass, inactiveTabClass } from "@/lib/tabStyles";
 
@@ -58,7 +59,7 @@ export function AccountShell() {
           </nav>
 
           <div className="min-w-0 flex-1">
-            <Outlet />
+            <NestedPageTransition />
           </div>
         </div>
       </div>

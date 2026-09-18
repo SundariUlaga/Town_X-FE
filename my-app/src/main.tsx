@@ -9,7 +9,6 @@ import { AuthProvider } from "@/context/AuthContext";
 import { LocationProvider } from "@/context/LocationContext";
 import { CompareProvider } from "@/context/CompareContext";
 import AppErrorBoundary from "@/components/shared/AppErrorBoundary";
-import { CompareBar } from "@/components/compare/CompareBar";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,7 +30,6 @@ createRoot(document.getElementById("root")!).render(
               <TooltipProvider delayDuration={200}>
                 <ToastProvider>
                   <App />
-                  <CompareBar />
                 </ToastProvider>
               </TooltipProvider>
             </AppErrorBoundary>

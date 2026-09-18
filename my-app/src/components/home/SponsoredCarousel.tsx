@@ -79,7 +79,7 @@ export function SponsoredCarousel({ ads, loading, className }: SponsoredCarousel
 
   return (
     <LayoutGroup id="sponsored-ads">
-    <div className={cn("space-y-5", className)}>
+    <div className={cn("space-y-3", className)}>
       {loading ? (
         <section className="min-w-0">
           <div className="mb-2 flex items-center justify-between gap-2">
