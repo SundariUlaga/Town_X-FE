@@ -17,7 +17,7 @@ export function ProtectedRoute({
   /** Omit to allow any authenticated user regardless of role. */
   allowedRoles?: UserRole[];
 }) {
-  const { user, isAuthenticated, isLoading, sessionDegraded } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
   const returnFrom = `${location.pathname}${location.search}`;
 
@@ -27,7 +27,8 @@ export function ProtectedRoute({
     }
   }, [user?.role]);
 
-  if (isLoading) {
+  // Cached user is enough to render. Only block when we have no session yet.
+  if (isLoading && !isAuthenticated) {
     return <TownLoader fullScreen label="Checking session" />;
   }
 
@@ -42,11 +43,6 @@ export function ProtectedRoute({
         feedState={location.state}
       />
     );
-  }
-
-  // Degraded session: wait for a successful /me before trusting KYC / role gates.
-  if (sessionDegraded) {
-    return <TownLoader fullScreen label="Restoring session" />;
   }
 
   if (user?.role === "admin") {

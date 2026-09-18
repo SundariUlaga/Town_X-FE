@@ -28,7 +28,7 @@ export function AuthRouteRedirect({ mode }: { mode: AuthDrawerMode }) {
   const { openAuthDrawer } = useAuthDrawer();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading && !isAuthenticated) return;
 
     const state = location.state as AuthLocationState | null;
     const fromQuery = params.get("from") || undefined;
@@ -68,7 +68,7 @@ export function AuthRouteRedirect({ mode }: { mode: AuthDrawerMode }) {
     user,
   ]);
 
-  if (isLoading) {
+  if (isLoading && !isAuthenticated) {
     return <TownLoader fullScreen size="md" label="Checking session" />;
   }
 

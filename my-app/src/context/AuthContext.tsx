@@ -64,16 +64,19 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 /**
- * Session bootstrap matches:
- * Open app → cookie/token? → GET /api/auth/me → valid → logged in; else guest.
- * Close tab keeps HttpOnly cookie; reopen re-validates via /me.
+ * Cached user is trusted immediately so reopen doesn't sit on a loader.
+ * GET /api/auth/me revalidates in the background (cookie and/or Bearer).
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(() => getStoredUser());
   const [token, setToken] = useState<string | null>(() => getToken());
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !getStoredUser());
   const [sessionDegraded, setSessionDegraded] = useState(false);
 
   const applyLoggedOut = () => {
@@ -109,38 +112,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => setUnauthorizedHandler(null);
   }, [queryClient]);
 
-  // Always validate session via /me (cookie and/or cached Bearer).
+  const applyUser = (freshUser: User) => {
+    const existing = getToken();
+    setUser(freshUser);
+    setToken(existing);
+    persistUser(freshUser, { sync: false });
+    setSessionDegraded(false);
+  };
+
+  // Revalidate in the background. Cached sessions must not wait on /me.
   useEffect(() => {
     let cancelled = false;
 
-    authAPI
-      .me()
-      .then((freshUser) => {
-        if (cancelled) return;
-        const existing = getToken();
-        setUser(freshUser);
-        setToken(existing);
-        persistUser(freshUser, { sync: false });
-        setSessionDegraded(false);
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
+    const hydrate = async (): Promise<"ok" | "signed-out" | "retry"> => {
+      try {
+        const freshUser = await authAPI.me();
+        if (cancelled) return "ok";
+        applyUser(freshUser);
+        return "ok";
+      } catch (error: unknown) {
+        if (cancelled) return "ok";
         const status = axios.isAxiosError(error) ? error.response?.status : undefined;
         if (status === 401 || status === 403) {
           applyLoggedOut();
-        } else if (getToken() && getStoredUser()) {
-          // Network blip with cached session — keep UX, mark degraded.
-          setSessionDegraded(true);
-        } else {
-          applyLoggedOut();
+          return "signed-out";
         }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+        if (getStoredUser()) {
+          setSessionDegraded(true);
+          return "retry";
+        }
+        applyLoggedOut();
+        return "signed-out";
+      }
+    };
+
+    void (async () => {
+      const first = await hydrate();
+      if (!cancelled) setIsLoading(false);
+      if (first !== "retry" || cancelled) return;
+      for (const ms of [1200, 3500]) {
+        await sleep(ms);
+        if (cancelled) return;
+        if ((await hydrate()) !== "retry") return;
+      }
+    })();
+
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!getStoredUser() && !getToken()) return;
+      void hydrate();
+    };
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

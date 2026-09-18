@@ -614,7 +614,7 @@ export default function DynamicLandingPage() {
   const { openAuthDrawer, closeAuthDrawer } = useAuthDrawer();
   const logoutToHome = useLogout();
   const pageRef = useRef(null);
-  const sessionReady = !isLoading;
+  const sessionReady = !isLoading || isAuthenticated;
   const signedIn = sessionReady && isAuthenticated;
 
   const { scrollYProgress } = useScroll({ target: pageRef, offset: ["start start", "end end"] });
