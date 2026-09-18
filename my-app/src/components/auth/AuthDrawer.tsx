@@ -12,6 +12,7 @@ import { OtpAuthForm } from "@/components/auth/OtpAuthForm";
 import { coercePublicRole } from "@/lib/roles";
 import { redirectToAdminConsole } from "@/lib/adminApp";
 import { WithTooltip } from "@/components/ui/WithTooltip";
+import { consumeSessionNotice, peekSessionNotice } from "@/lib/authStorage";
 
 const sidePanelVariants = {
   hidden: { x: "100%" },
@@ -63,6 +64,7 @@ export function AuthDrawer() {
 
   const handleAuthSuccess = useCallback(
     (user: User) => {
+      consumeSessionNotice();
       closeAuthDrawer();
       if (user.role === "admin") {
         redirectToAdminConsole("/dashboard");
@@ -99,6 +101,7 @@ export function AuthDrawer() {
 
   const instant = reduceMotion;
   const panelVariants = isMobile ? bottomPanelVariants : sidePanelVariants;
+  const sessionNotice = isOpen ? peekSessionNotice() : null;
 
   return (
     <AnimatePresence>
@@ -169,6 +172,15 @@ export function AuthDrawer() {
                       ? "Enter your mobile number and OTP to continue."
                       : `Join ${APP_NAME} with your mobile number, then verify your identity.`}
                   </p>
+
+                  {sessionNotice ? (
+                    <p
+                      className="mt-3 rounded-control border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+                      role="status"
+                    >
+                      {sessionNotice}
+                    </p>
+                  ) : null}
 
                   <div className="mt-6">
                     <OtpAuthForm

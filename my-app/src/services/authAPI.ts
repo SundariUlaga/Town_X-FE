@@ -1,5 +1,6 @@
 import api from "./api";
 import type { AuthResponse, User, UserRole } from "@/types/user";
+import { refreshAccessToken } from "@/lib/sessionRefresh";
 
 export interface VerifyOtpPayload {
   phone: string;
@@ -41,7 +42,10 @@ export const authAPI = {
     return response.data;
   },
 
-  /** Clears HttpOnly session cookie on the API. */
+  /** Rotate access + refresh using the HttpOnly refresh cookie. */
+  refresh: refreshAccessToken,
+
+  /** Clears HttpOnly access + refresh cookies on the API. */
   logout: async (): Promise<void> => {
     try {
       await api.post("/api/auth/logout");

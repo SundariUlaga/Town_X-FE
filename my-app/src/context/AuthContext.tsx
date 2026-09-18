@@ -5,13 +5,19 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { authAPI, type VerifyOtpPayload } from "@/services/authAPI";
 import type { User, UserRole } from "@/types/user";
+import { refreshAccessToken } from "@/lib/sessionRefresh";
 import {
   clearSession,
   getStoredUser,
   getToken,
+  hasCachedSession,
+  isAccessTokenExpired,
+  isAccessTokenExpiringSoon,
+  markSessionExpired,
   pathOnly,
   persistSession as writeSession,
   persistUser,
+  SESSION_EXPIRED_MESSAGE,
   setUnauthorizedHandler,
   subscribeAuthBroadcast,
 } from "@/lib/authStorage";
@@ -68,22 +74,35 @@ function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+function endExpiredSession() {
+  markSessionExpired(SESSION_EXPIRED_MESSAGE);
+  clearSession({ sync: true, reason: "expired" });
+}
+
 /**
  * Cached user is trusted immediately so reopen doesn't sit on a loader.
  * GET /api/auth/me revalidates in the background (cookie and/or Bearer).
+ * Expired access tokens are refreshed silently; a dead refresh session asks
+ * the user to log in again.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(() => getStoredUser());
   const [token, setToken] = useState<string | null>(() => getToken());
-  const [isLoading, setIsLoading] = useState(() => !getStoredUser());
+  const [isLoading, setIsLoading] = useState(() => !getStoredUser() && hasCachedSession());
   const [sessionDegraded, setSessionDegraded] = useState(false);
 
-  const applyLoggedOut = () => {
-    clearSession({ sync: false });
+  const applyLoggedOut = (expired = false) => {
+    if (expired) {
+      markSessionExpired(SESSION_EXPIRED_MESSAGE);
+      clearSession({ sync: true, reason: "expired" });
+    } else {
+      clearSession({ sync: false });
+    }
     setToken(null);
     setUser(null);
     setSessionDegraded(false);
+    queryClient.clear();
   };
 
   const logout = () => {
@@ -97,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
-      clearSession({ sync: true });
+      endExpiredSession();
       setToken(null);
       setUser(null);
       setSessionDegraded(false);
@@ -125,23 +144,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     const hydrate = async (): Promise<"ok" | "signed-out" | "retry"> => {
+      if (!hasCachedSession()) {
+        return "signed-out";
+      }
+
       try {
+        if (isAccessTokenExpired(getToken())) {
+          const refreshed = await refreshAccessToken();
+          if (cancelled) return "ok";
+          if (refreshed?.access_token) setToken(refreshed.access_token);
+          if (refreshed?.user) applyUser(refreshed.user);
+        }
         const freshUser = await authAPI.me();
         if (cancelled) return "ok";
         applyUser(freshUser);
+        setToken(getToken());
         return "ok";
       } catch (error: unknown) {
         if (cancelled) return "ok";
         const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-        if (status === 401 || status === 403) {
-          applyLoggedOut();
+        if (status === 401) {
+          applyLoggedOut(hasCachedSession());
           return "signed-out";
         }
         if (getStoredUser()) {
           setSessionDegraded(true);
           return "retry";
         }
-        applyLoggedOut();
+        applyLoggedOut(false);
         return "signed-out";
       }
     };
@@ -159,21 +189,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
-      if (!getStoredUser() && !getToken()) return;
+      if (!hasCachedSession()) return;
+      if (isAccessTokenExpiringSoon(getToken())) {
+        void refreshAccessToken()
+          .then((data) => {
+            if (data?.access_token) setToken(data.access_token);
+          })
+          .catch(() => {
+            void hydrate();
+          });
+        return;
+      }
       void hydrate();
     };
     document.addEventListener("visibilitychange", onVisible);
 
+    const interval = window.setInterval(() => {
+      if (!hasCachedSession()) return;
+      if (!isAccessTokenExpiringSoon(getToken())) return;
+      void refreshAccessToken()
+        .then((data) => {
+          if (data?.access_token) setToken(data.access_token);
+        })
+        .catch(() => {
+          /* interceptor / hydrate handles hard expiry */
+        });
+    }, 60_000);
+
     return () => {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(interval);
     };
   }, []);
 
   // Cross-tab: login/logout in Tab A updates Tab B without full reload.
   useEffect(() => {
     return subscribeAuthBroadcast((msg) => {
-      if (msg.type === "logout") {
+      if (msg.type === "logout" || msg.type === "expired") {
+        if (msg.type === "expired") markSessionExpired(SESSION_EXPIRED_MESSAGE);
         setToken(null);
         setUser(null);
         setSessionDegraded(false);
@@ -184,6 +238,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(msg.token);
         setUser(msg.user);
         setSessionDegraded(false);
+        return;
+      }
+      if (msg.type === "token") {
+        setToken(msg.token);
         return;
       }
       if (msg.type === "user") {
@@ -213,7 +271,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: unknown) {
       const status = axios.isAxiosError(error) ? error.response?.status : undefined;
       if (status === 401) {
-        logout();
+        applyLoggedOut(true);
         return null;
       }
       setSessionDegraded(true);

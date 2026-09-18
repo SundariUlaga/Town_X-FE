@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import axios from "axios";
 import "./index.css";
 import App from "./App.jsx";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,7 +16,10 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 60 * 1000,
       refetchOnWindowFocus: false,
-      retry: 1,
+      retry: (failureCount, error) => {
+        if (axios.isAxiosError(error) && error.response?.status === 401) return false;
+        return failureCount < 1;
+      },
     },
   },
 });

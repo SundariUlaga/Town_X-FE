@@ -12,6 +12,7 @@ import { AuthDrawerProvider } from "@/context/AuthDrawerContext";
 import PageLoader from "@/components/shared/PageLoader";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { CompareBar } from "@/components/compare/CompareBar";
+import { SessionExpiryNotice } from "@/components/auth/SessionExpiryNotice";
 
 const HomePage = lazy(() => import("./components/HomePage"));
 const StoryViewer = lazy(() => import("./components/StoryViewer"));
@@ -282,6 +283,7 @@ function App() {
   return (
     <Router>
       <AuthDrawerProvider>
+        <SessionExpiryNotice />
         <AppRoutes />
         <CompareBar />
       </AuthDrawerProvider>

@@ -5,6 +5,9 @@ export const USER_KEY = "townx_user";
 export const KYC_RETURN_KEY = "townx_kyc_return";
 export const AUTH_BROADCAST_KEY = "townx_auth_sync";
 export const POST_LOGOUT_KEY = "townx_post_logout";
+export const SESSION_NOTICE_KEY = "townx_session_notice";
+
+export const SESSION_EXPIRED_MESSAGE = "Your session has expired. Please log in again.";
 
 export type KycReturnState = {
   from?: string;
@@ -14,20 +17,22 @@ export type KycReturnState = {
 export type AuthBroadcastMessage =
   | { type: "login"; token: string; user: User }
   | { type: "logout" }
-  | { type: "user"; user: User };
+  | { type: "expired" }
+  | { type: "user"; user: User }
+  | { type: "token"; token: string };
 
-type UnauthorizedHandler = () => void;
+type UnauthorizedHandler = (reason?: "expired") => void;
 
 let unauthorizedHandler: UnauthorizedHandler | null = null;
 let authChannel: BroadcastChannel | null = null;
 
-/** Register a single handler invoked on API 401 (clears React auth + query cache). */
+/** Register a single handler invoked when the session cannot be recovered. */
 export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
   unauthorizedHandler = handler;
 }
 
-export function notifyUnauthorized() {
-  unauthorizedHandler?.();
+export function notifyUnauthorized(reason: "expired" = "expired") {
+  unauthorizedHandler?.(reason);
 }
 
 export function getToken(): string | null {
@@ -45,6 +50,43 @@ export function getStoredUser(): User | null {
   } catch {
     return null;
   }
+}
+
+export function hasCachedSession(): boolean {
+  return Boolean(getStoredUser() || getToken());
+}
+
+function decodeJwtPayload(token: string): { exp?: number; typ?: string } | null {
+  try {
+    const part = token.split(".")[1];
+    if (!part) return null;
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), "=");
+    return JSON.parse(atob(padded)) as { exp?: number; typ?: string };
+  } catch {
+    return null;
+  }
+}
+
+export function getAccessTokenExpiryMs(token: string | null): number | null {
+  if (!token) return null;
+  const payload = decodeJwtPayload(token);
+  return typeof payload?.exp === "number" ? payload.exp * 1000 : null;
+}
+
+/** True when the access JWT is missing or past (or within skew of) expiry. */
+export function isAccessTokenExpired(token: string | null, skewMs = 15_000): boolean {
+  if (!token) return true;
+  const exp = getAccessTokenExpiryMs(token);
+  if (!exp) return false;
+  return Date.now() + skewMs >= exp;
+}
+
+export function isAccessTokenExpiringSoon(token: string | null, withinMs = 60_000): boolean {
+  if (!token) return true;
+  const exp = getAccessTokenExpiryMs(token);
+  if (!exp) return false;
+  return Date.now() + withinMs >= exp;
 }
 
 function broadcast(message: AuthBroadcastMessage) {
@@ -69,15 +111,49 @@ export function persistSession(token: string, user: User, { sync = true } = {}) 
   if (sync) broadcast({ type: "login", token, user });
 }
 
+export function persistAccessToken(token: string, { sync = true } = {}) {
+  localStorage.setItem(TOKEN_KEY, token);
+  if (sync) broadcast({ type: "token", token });
+}
+
 export function persistUser(user: User, { sync = true } = {}) {
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   if (sync) broadcast({ type: "user", user });
 }
 
-export function clearSession({ sync = true } = {}) {
+export function clearSession({ sync = true, reason = "logout" }: { sync?: boolean; reason?: "logout" | "expired" } = {}) {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
-  if (sync) broadcast({ type: "logout" });
+  if (sync) broadcast({ type: reason === "expired" ? "expired" : "logout" });
+}
+
+/** Persist a message shown after redirecting a timed-out session to login. */
+export function markSessionExpired(message: string = SESSION_EXPIRED_MESSAGE) {
+  try {
+    sessionStorage.setItem(SESSION_NOTICE_KEY, message);
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new CustomEvent("townx:session-expired"));
+}
+
+export function peekSessionNotice(): string | null {
+  try {
+    return sessionStorage.getItem(SESSION_NOTICE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function consumeSessionNotice(): string | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_NOTICE_KEY);
+    if (!raw) return null;
+    sessionStorage.removeItem(SESSION_NOTICE_KEY);
+    return raw;
+  } catch {
+    return null;
+  }
 }
 
 /** Subscribe to login/logout from other tabs. Returns unsubscribe. */

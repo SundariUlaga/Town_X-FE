@@ -1,6 +1,7 @@
 import axios from 'axios';
-import { getToken, notifyUnauthorized } from '@/lib/authStorage';
+import { getToken, hasCachedSession, notifyUnauthorized } from '@/lib/authStorage';
 import { getApiBaseUrl } from '@/lib/apiBase';
+import { isAuthSkipUrl, refreshAccessToken } from '@/lib/sessionRefresh';
 
 // Empty baseURL → relative /api via Vite proxy (cookie session works).
 const API_BASE_URL = getApiBaseUrl();
@@ -25,21 +26,31 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const status = error.response?.status;
-    if (status === 401) {
-      // Avoid clearing on auth bootstrap / OTP endpoints that legitimately 401.
-      const url = String(error.config?.url || '');
-      const isAuthProbe =
-        url.includes('/api/auth/me') ||
-        url.includes('/api/auth/send-otp') ||
-        url.includes('/api/auth/verify-otp') ||
-        url.includes('/api/auth/logout');
-      if (!isAuthProbe) {
-        notifyUnauthorized();
-      }
+    const config = error.config || {};
+    const url = String(config.url || '');
+
+    if (status !== 401 || config._retry || isAuthSkipUrl(url)) {
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
+
+    config._retry = true;
+    try {
+      await refreshAccessToken();
+      const token = getToken();
+      if (token) {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return api(config);
+    } catch {
+      // /me is handled by AuthContext so guests and boot probes don't hard-redirect.
+      if (!url.includes('/api/auth/me') && hasCachedSession()) {
+        notifyUnauthorized('expired');
+      }
+      return Promise.reject(error);
+    }
   }
 );
 

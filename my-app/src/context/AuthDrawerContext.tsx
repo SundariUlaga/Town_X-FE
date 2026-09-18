@@ -12,7 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { AuthDrawer } from "@/components/auth/AuthDrawer";
 import type { UserRole } from "@/types/user";
-import { markPostLogoutRedirect } from "@/lib/authStorage";
+import { markPostLogoutRedirect, consumeSessionNotice } from "@/lib/authStorage";
 
 export type AuthDrawerMode = "login" | "signup";
 
@@ -90,6 +90,7 @@ export function useLogout() {
 
   return useCallback(() => {
     markPostLogoutRedirect();
+    consumeSessionNotice();
     if (isOpen) closeAuthDrawer();
     logout();
     queryClient.clear();
