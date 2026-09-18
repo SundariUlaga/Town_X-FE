@@ -863,7 +863,6 @@ export default function PropertyDetails() {
                 <div className="bg-brand-50 p-4 rounded-control border border-brand-200">
                   <p className="text-xs text-brand-800 mb-1 font-medium">Send an enquiry</p>
                   <p className="text-sm text-brand-700">
-                  <p className="text-sm text-brand-700">
                     {isOwnListing
                       ? 'This is your listing — buyers will send enquiries here.'
                       : isKycVerified
